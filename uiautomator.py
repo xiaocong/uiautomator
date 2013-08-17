@@ -4,15 +4,42 @@
 """
 """
 
-import jsonrpclib
 import os
 import urllib2
 import subprocess
 import time
 import itertools
 
+try:
+    import jsonrpclib
+except ImportError:
+    pass
+
 __version__ = "0,1"
 __author__ = "Xiaocong He"
+
+
+def param_to_property(**props):
+    class Wrapper(object):
+
+        def __init__(self, func):
+            self.func = func
+            self.kwargs = {}
+
+        def __getattribute__(self, attr):
+            try:
+                return super(Wrapper, self).__getattribute__(attr)
+            except AttributeError:
+                for prop_name, prop_values in props.items():
+                    if attr in prop_values and prop_name not in self.kwargs:
+                        self.kwargs[prop_name] = attr
+                        return self
+                raise
+
+        def __call__(self, *args, **kwargs):
+            self.kwargs.update(kwargs)
+            return self.func(*args, **self.kwargs)
+    return Wrapper
 
 
 class _SelectorBuilder(object):
@@ -133,6 +160,10 @@ def adb_devices():
     return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
 
 
+def adb_forward(local_port, device_port):
+    adb_cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+
+
 class _AutomatorServer(object):
 
     """start and quit rpc server on device.
@@ -191,8 +222,7 @@ class _AutomatorServer(object):
         cmd = ["shell", "uiautomator", "runtest"] + \
             files + ["-c", "com.github.uiautomatorstub.Stub"]
         self.__automator_process = adb_cmd(*cmd)
-        self.__adb_forward(local_port, 9008)
-                          # TODO device_port, currently only 9008
+        adb_forward(local_port, 9008)  # TODO device_port, currently only 9008
         while not self.__can_ping():
             time.sleep(0.1)
 
@@ -324,29 +354,48 @@ class _AutomatorDevice(object):
         '''clear the last traversed text.'''
         self.server.jsonrpc.clearLastTraversedText()
 
-    def notification(self):
-        '''open notification.'''
-        return self.server.jsonrpc.openNotification()
+    @property
+    def open(self):
+        '''
+        Usage:
+        d.open.notification()
+        d.open.quick_settings()
+        '''
+        obj = self
 
-    def quick_settings(self):
-        '''open quick settings.'''
-        return self.server.jsonrpc.openQuickSettings()
+        class Target(object):
+
+            def notification(self):
+                return obj.server.jsonrpc.openNotification()
+
+            def quick_settings(self):
+                return obj.server.jsonrpc.openQuickSettings()
+        return Target()
 
     def watcher_triggered(self, name):
         '''check if the registered watcher was triggered.'''
         return self.server.jsonrpc.hasWatcherTriggered(name)
 
-    def press(self, key, meta=None):
+    @property
+    def press(self):
         '''
         press key via name or key code. Supported key name includes:
         home, back, left, right, up, down, center, menu, search, enter,
         delete(or del), recent(recent apps), voulmn_up, volumn_down,
-        volumn_mute, camera, power
+        volumn_mute, camera, power.
+        Usage:
+        d.press.back()  # press back key
+        d.press.menu()  # press home key
+        d.press(89)     # press keycode
         '''
-        if isinstance(key, int):
-            return self.server.jsonrpc.pressKeyCode(key, meta) if meta else self.server.jsonrpc.pressKeyCode(key)
-        else:
-            return self.server.jsonrpc.pressKey(str(key))
+        obj = self
+        @param_to_property(key=["home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power"])
+        def _press(key, meta=None):
+            if isinstance(key, int):
+                return obj.server.jsonrpc.pressKeyCode(key, meta) if meta else self.server.jsonrpc.pressKeyCode(key)
+            else:
+                return obj.server.jsonrpc.pressKey(str(key))
+        return _press
 
     def wakeup(self):
         '''turn on screen in case of screen off.'''
@@ -356,42 +405,46 @@ class _AutomatorDevice(object):
         '''turn off screen in case of screen on.'''
         self.server.jsonrpc.sleep()
 
-    def screenon():
-        doc = "screen on or off."
-
-        def fget(self):
-            return self.server.jsonrpc.isScreenOn()
-
-        def fset(self, value):
-            if value:
-                self.wakeup()
-            else:
-                self.sleep()
-        return locals()
-    screenon = property(**screenon())
-
-    def wait_for_idle(self, timeout=1000):
-        '''Waits for the current application to idle.'''
-        self.server.jsonrpc.waitForIdle(timeout)
-
-    def wait_for_window_update(self, package_name=None, timeout=1000):
+    @property
+    def screen(self):
         '''
-        Waits for a window content update event to occur. If a package name
-        for the window is specified, but the current window does not have the
-        same package name, the function returns immediately.
+        Turn on/off screen.
+        Usage:
+        d.screen.on()
+        d.screen.off()
         '''
-        return self.server.jsonrpc.waitForWindowUpdate(package_name, timeout)
+        obj = self
+
+        @param_to_property(action=["on", "off"])
+        def _screen(action):
+            return obj.wakeup() if action is "on" else obj.sleep()
+        return _screen
+
+    @property
+    def wait(self):
+        '''
+        Waits for the current application to idle or window update event occurs.
+        Usage:
+        d.wait.idle(timeout=1000)
+        d.wait.update(timeout=1000, package_name="com.android.settings")
+        '''
+        obj = self
+
+        @param_to_property(action=["idle", "update"])
+        def _wait(action, timeout=1000, package_name=None):
+            if action is "idle":
+                return obj.server.jsonrpc.waitForIdle(timeout)
+            elif action is "update":
+                return obj.server.jsonrpc.waitForWindowUpdate(package_name, timeout)
+        return _wait
 
 
 class _AutomatorDeviceObject(object):
 
     '''Represent a UiObject, on which user can perform actions, such as click, set text
     '''
-    __action_properties = (
-        ["scroll", "fling", "drag"],
-        ["vert", "vertically", "horiz", "horizentally"],
-        ["to", "toBeginning", "toEnd", "forward", "backward"]
-    )
+
+    __alias = {'description': "contentDescription", "class": "className"}
 
     def __init__(self, jsonrpc, **kwargs):
         self.jsonrpc = jsonrpc
@@ -421,70 +474,18 @@ class _AutomatorDeviceObject(object):
         try:
             return super(_AutomatorDeviceObject, self).__getattribute__(attr)
         except AttributeError:
-            if any(attr in l for l in self.__action_properties):
-                self.__actions.append(attr)
-                return self
             info = self.info
-            alias = {'description': "contentDescription"}
             if attr in info:
                 return info[attr]
-            elif attr in alias:
-                return info[alias[attr]]
+            elif attr in self.__alias:
+                return info[self.__alias[attr]]
             else:
                 raise
-
-    def __call__(self, *args, **kwargs):
-        actions, self.__actions = self.__actions, []
-        ad = {i: None for i in range(len(self.__action_properties))}
-        for a in actions:
-            for k, v in enumerate(self.__action_properties):
-                if a in v and ad[k] is None:
-                    ad[k] = a
-                    break
-            else:
-                raise AttributeError("Invalid attributes %s." % a)
-        if ad[1] in self.__action_properties[1][:2]:
-            kwargs["vertical"] = True
-        else:
-            kwargs["vertical"] = False
-        if ad[0] is "scroll":
-            if ad[2] is "to":
-                return self.__scroll_to(**kwargs)
-            elif ad[2] is "toBeginning":
-                return self.__scroll_to_beginning(**kwargs)
-            elif ad[2] is "toEnd":
-                return self.__scroll_to_end(**kwargs)
-            elif ad[2] is "forward":
-                return self.__scroll(forward=True, **kwargs)
-            elif ad[2] is "backward":
-                return self.__scroll(forward=False, **kwargs)
-            else:
-                return self.__scroll(**kwargs)
-        elif ad[0] is "fling":
-            if ad[2] is "toBeginning":
-                return self.__fling_to_beginning(**kwargs)
-            elif ad[2] is "toEnd":
-                return self.__fling_to_end(**kwargs)
-            elif ad[2] is "forward":
-                return self.__fling(forward=True, **kwargs)
-            elif ad[2] is "backward":
-                return self.__scroll(forward=False, **kwargs)
-            else:
-                return self.__scroll(**kwargs)
-        elif ad[0] is "drag" and ad[2] is "to":
-            return self.__drag_to(*args, **kwargs)
-
-        raise SyntaxError("Invalid syntax.")
 
     @property
     def info(self):
         '''ui object info.'''
         return self.jsonrpc.objInfo(self.selector)
-
-    @property
-    def text(self):
-        '''get the text field.'''
-        return self.jsonrpc.getText(self.selector)
 
     def set_text(self, text):
         '''set the text field.'''
@@ -497,78 +498,216 @@ class _AutomatorDeviceObject(object):
         '''clear text. alias for set_text(None).'''
         self.set_text(None)
 
-    def click(self, corner=None):
+    @property
+    def click(self):
         '''
-        Perform a click action on the object. corner can be:
-        tl/topleft: click on topleft corner.
-        br/bottomright: click on bottomright corner.
-        center/None: click on center.
+        click on the ui object.
+        Usage:
+        d(text="Clock").click()  # click on the center of the ui object
+        d(text="OK").click.wait(timeout=3000) # click and wait for the new window update
+        d(text="John").click.topleft() # click on the topleft of the ui object
+        d(text="John").click.bottomright() # click on the bottomright of the ui object
         '''
-        if corner is None:
-            return self.jsonrpc.click(self.selector)
-        elif isinstance(corner, str) and corner.lower() in ["tl", "topleft", "br", "bottomright", "center"]:
-            return self.jsonrpc.click(self.selector, corner)
-        raise SyntaxError("Invalid parameters.")
+        obj = self
+        @param_to_property(action=["tl", "topleft", "br", "bottomright", "wait"])
+        def _click(action=None, timeout=3000):
+            if action is None:
+                return obj.jsonrpc.click(obj.selector)
+            elif action in ["tl", "topleft", "br", "bottomright"]:
+                return obj.jsonrpc.click(obj.selector, action)
+            else:
+                return obj.jsonrpc.clickAndWaitForNewWindow(obj.selector, timeout)
+        return _click
 
-    def click_and_wait_for_new_window(self, timeout=1000):
+    @property
+    def long_click(self):
         '''
-        Performs a click at the center of the visible bounds of the UI element
-        represented by this UiObject and waits for window transitions.
+        Perform a long click action on the object.
+        Usage:
+        d(text="Image").long_click()  # long click on the center of the ui object
+        d(text="Image").long_click.topleft()  # long click on the topleft of the ui object
+        d(text="Image").long_click.bottomright()  # long click on the topleft of the ui object
         '''
-        return self.jsonrpc.clickAndWaitForNewWindow(self.selector, timeout)
+        obj = self
 
-    def long_click(self, corner=None):
+        @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
+        def _long_click(corner=None):
+            if corner is None:
+                return obj.jsonrpc.longClick(obj.selector)
+            else:
+                return obj.jsonrpc.longClick(obj.selector, corner)
+        return _long_click
+
+    @property
+    def drag(self):
         '''
-        Perform a long click action on the object. corner can be:
-        tl/topleft: click on topleft corner.
-        br/bottomright: click on bottomright corner.
-        center/None: click on center.
+        Drag the ui object to other point or ui object.
+        Usage:
+        d(text="Clock").drag.to(x=100, y=100)  # drag to point (x,y)
+        d(text="Clock").drag.to(text="Remove") # drag to another object
         '''
-        if corner is None:
-            return self.jsonrpc.longClick(self.selector)
-        elif isinstance(corner, str) and corner.lower() in ["tl", "topleft", "br", "bottomright", "center"]:
-            return self.jsonrpc.longClick(self.selector, corner)
-        raise SyntaxError("Invalid parameters.")
+        obj = self
 
-    def __drag_to_coordinates(self, x, y, steps=100):
-        return self.jsonrpc.dragTo(self.selector, x, y, steps)
+        class Drag(object):
 
-    def __drag_to_obj(self, steps=100, **kwargs):
-        return self.jsonrpc.dragTo(self.selector, SelectorBuilder(**kwargs).build(), steps)
+            def to(self, *args, **kwargs):
+                if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
+                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(
+                        obj.selector, x, y, steps)
+                else:
+                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(
+                        obj.selector, SelectorBuilder(**kwargs).build(), steps)
+                return drag_to(*args, **kwargs)
+        return Drag()
 
-    def __drag_to(self, *args, **kwargs):
-        if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
-            return self.__drag_to_coordinates(*args, **kwargs)
+    def gesture(self, start1, start2, *args, **kwargs):
+        '''
+        perform two point gesture.
+        Usage:
+        d().gesture(startPoint1, startPoint2).to(endPoint1, endPoint2, steps)
+        d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
+        '''
+        obj = self
+
+        class Gesture(object):
+
+            def to(self, end1, end2, steps=100):
+                return obj.jsonrpc.gesture(obj.selector,
+                                           start1, start2,
+                                           end1, end2, steps)
+        if len(args) == 0:
+            return Gesture()
+        elif 3 >= len(args) >= 2:
+            f = lambda end1, end2, steps=100: obj.jsonrpc.gesture(
+                obj.selector, start1, start2, end1, end2, steps)
+            return f(*args, **kwargs)
         else:
-            return self.__drag_to_obj(*args, **kwargs)
+            raise SyntaxError("Invalid parameters.")
 
-    def __fling(self, vertical=True, forward=True):
-        '''fling forward/backward.'''
-        return self.jsonrpc.flingForward(self.selector, vertical) if forward else self.jsonrpc.flingBackward(self.selector, vertical)
+    @property
+    def pinch(self):
+        '''
+        Perform two point gesture from edge to center(in) or center to edge(out).
+        Usages:
+        d().pinch.In(percent=100, steps=10)
+        d().pinch.Out(percent=100, steps=100)
+        '''
+        obj = self
 
-    def __fling_to_beginning(self, vertical=True, max_swipes=1000):
-        '''fling to beginning.'''
-        return self.jsonrpc.flingToBeginning(self.selector, vertical, max_swipes)
+        @param_to_property(in_or_out=["In", "Out"])
+        def _pinch(in_or_out="Out", percent=100, steps=50):
+            if in_or_out in ["Out", "out"]:
+                return obj.jsonrpc.pinchOut(obj.selector, percent, steps)
+            elif in_or_out in ["In", "in"]:
+                return obj.jsonrpc.pinchIn(obj.selector, percent, steps)
+        return _pinch
 
-    def __fling_to_end(self, vertical=True, max_swipes=1000):
-        '''fling to end.'''
-        return self.jsonrpc.flingToEnd(self.selector, vertical, max_swipes)
+    @property
+    def swipe(self):
+        '''
+        Perform swipe action.
+        Usages:
+        d().swipe.right()
+        d().swipe.left(steps=10)
+        d().swipe.up(steps=10)
+        d().swipe.down()
+        d().swipe("right", steps=20)
+        '''
+        obj = self
 
-    def __scroll(self, vertical=True, steps=50, forward=True):
-        '''scroll forward/backward.'''
-        return self.jsonrpc.scrollForward(self.selector, vertical, steps) if forward else self.jsonrpc.scrollBackward(self.selector, vertical, steps)
+        @param_to_property(direction=["up", "down", "right", "left"])
+        def _swipe(direction="left", steps=10):
+            return obj.jsonrpc.swipe(obj.selector, direction, steps)
+        return _swipe
 
-    def __scroll_to_beginning(self, vertical=True, steps=50, max_swipes=1000):
-        '''scroll to beginning.'''
-        return self.jsonrpc.scrollToBeginning(self.selector, vertical, max_swipes, steps)
+    @property
+    def fling(self):
+        '''
+        Perform fling action.
+        Usage:
+        d().fling()  # default vertically, forward
+        d().fling.horiz.forward()
+        d().fling.vert.backward()
+        d().fling.toBeginning(max_swipes=100) # vertically
+        d().fling.horiz.toEnd()
+        '''
+        obj = self
 
-    def __scroll_to_end(self, vertical=True, steps=50, max_swipes=1000):
-        '''scroll to end.'''
-        return self.jsonrpc.scrollToEnd(self.selector, vertical, max_swipes, steps)
+        @param_to_property(
+            dimention=["vert", "vertically", "vertical",
+                       "horiz", "horizental", "horizentally"],
+            action=["forward", "backward", "toBeginning", "toEnd"])
+        def _fling(dimention="vert", action="forward", max_swipes=1000):
+            vertical = dimention in ["vert", "vertically", "vertical"]
+            if action is "forward":
+                return obj.jsonrpc.flingForward(obj.selector, vertical)
+            elif action is "backward":
+                return obj.jsonrpc.flingBackward(obj.selector, vertical)
+            elif action is "toBeginning":
+                return obj.jsonrpc.flingToBeginning(obj.selector, vertical, max_swipes)
+            elif action is "toEnd":
+                return obj.jsonrpc.flingToEnd(obj.selector, vertical, max_swipes)
 
-    def __scroll_to(self, vertical=True, **kwargs):
-        '''scroll until a ui object visible.'''
-        return self.jsonrpc.scrollTo(self.selector, SelectorBuilder(**kwargs).build(), vertical)
+        return _fling
 
+    @property
+    def scroll(self):
+        '''
+        Perfrom scroll action.
+        Usage:
+        d().scroll(steps=50) # default vertically and forward
+        d().scroll.horiz.forward(steps=100)
+        d().scroll.vert.backward(steps=100)
+        d().scroll.horiz.toBeginning(steps=100, max_swipes=100)
+        d().scroll.vert.toEnd(steps=100)
+        d().scroll.horiz.to(text="Clock")
+        '''
+        obj = self
+
+        def __scroll(vertical, forward, steps=100):
+            return obj.jsonrpc.scrollForward(obj.selector, vertical, steps) if forward else obj.jsonrpc.scrollBackward(obj.selector, vertical, steps)
+
+        def __scroll_to_beginning(vertical, steps=100, max_swipes=1000):
+            return obj.jsonrpc.scrollToBeginning(obj.selector, vertical, max_swipes, steps)
+
+        def __scroll_to_end(vertical, steps=100, max_swipes=1000):
+            return obj.jsonrpc.scrollToEnd(obj.selector, vertical, max_swipes, steps)
+
+        def __scroll_to(vertical, **kwargs):
+            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs).build(), vertical)
+
+        @param_to_property(
+            dimention=["vert", "vertically", "vertical",
+                       "horiz", "horizental", "horizentally"],
+            action=["forward", "backward", "toBeginning", "toEnd", "to"])
+        def _scroll(dimention="vert", action="forward", **kwargs):
+            vertical = dimention in ["vert", "vertically", "vertical"]
+            if action in ["forward", "backward"]:
+                return __scroll(vertical, action is "forward", **kwargs)
+            elif action is "toBeginning":
+                return __scroll_to_beginning(vertical, **kwargs)
+            elif action is "toEnd":
+                return __scroll_to_end(vertical, **kwargs)
+            elif action is "to":
+                return __scroll_to(vertical, **kwargs)
+        return _scroll
+
+    @property
+    def wait(self):
+        '''
+        Wait until the ui object gone or exist.
+        Usage:
+        d(text="Clock").wait.gone()  # wait until it's gone.
+        d(text="Settings").wait.exist() # wait until it appears.
+        '''
+        obj = self
+
+        @param_to_property(action=["exist", "gone"])
+        def _wait(action, timeout=3000):
+            if action is "exist":
+                return obj.jsonrpc.waitForExists(obj.selector, timeout)
+            elif action is "gone":
+                return obj.jsonrpc.waitUntilGone(obj.selector, timeout)
+        return _wait
 
 device = _AutomatorDevice()
