@@ -11,9 +11,9 @@ This module is a Python wrapper of Android [uiautomator][] testing framework.
 
 ## Pre-requirements
 
-- Have [Android SDK](http://developer.android.com/sdk/index.html) installed, and set $ANDROID_HOME environment to the correct path.
-- Have your android device connected with usb and ADB debugging enabled.
-- If you have multiple devices attached, please set $ANDROID_SERIAL environment before using it.
+- Install [Android SDK](http://developer.android.com/sdk/index.html), and set $ANDROID_HOME environment to the correct path.
+- Enable ADB setting on device and connect your android device using usb with your PC.
+- Set $ANDROID_SERIAL environment in case of multiple android devices connected.
 
 ## import uiautomator
 
