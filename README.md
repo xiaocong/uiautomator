@@ -3,19 +3,19 @@ uiautomator
 
 This module is a Python wrapper of Android [uiautomator][] testing framework.
 
-# Installation
+## Installation
 
     $ pip install uiautomator
 
-# Usages
+## Usages
 
-## Pre-requirements
+### Pre-requirements
 
 - Install [Android SDK](http://developer.android.com/sdk/index.html), and set $ANDROID_HOME environment to the correct path.
 - Enable ADB setting on device and connect your android device using usb with your PC.
 - Set $ANDROID_SERIAL environment in case of multiple android devices connected.
 
-## import uiautomator
+### import uiautomator
 
 ```python
 from uiautomator import device as d
@@ -23,7 +23,7 @@ from uiautomator import device as d
 
 **In below examples, we use `d` represent the android device object.**
 
-## Retrieve the device info
+### Retrieve the device info
 
 ```python
 d.info
@@ -38,7 +38,7 @@ d.info
 # u'naturalOrientation': True}
 ```
 
-## Turn on/off screen
+### Turn on/off screen
 
 ```python
 d.screen.on()  # Turn on screen
@@ -52,7 +52,7 @@ d.wakeup()    # wakeup the device
 d.sleep()     # sleep the device, same as turning off the screen.
 ```
 
-## Press hard/soft key
+### Press hard/soft key
 
 ```python
 d.press.home() # press home key
@@ -79,27 +79,27 @@ Next keys are currently supported:
 - `camera`
 - `power`
 
-## Click the screen
+### Click the screen
 
 ```python
 d.click(x, y)   # click (x, y) on screen
 ```
 
-## Swipe
+### Swipe
 
 ```python
 d.swipe(sx, sy, ex, ey)  # swipe from (sx, sy) to (ex, ey)
 d.swipe(sx, sy, ex, ey, steps=10)  # swipe from (sx, sy) to (ex, ey) with 10 steps
 ```
 
-## Drag
+### Drag
 
 ```python
 d.drag(sx, sy, ex, ey)  # drag from (sx, sy) to (ex, ey)
 d.drag(sx, sy, ex, ey, steps=10)  # drag from (sx, sy) to (ex, ey) with 10 steps
 ```
 
-## Retrieve/Set Orientation
+### Retrieve/Set Orientation
 
 The possible orientation is:
 -   `natural` or `n`
@@ -116,40 +116,40 @@ d.orientation = "r" # or "right"
 d.orientation = "n" # or "natural"
 ```
 
-## Freeze/Un-Freeze rotation
+### Freeze/Un-Freeze rotation
 
 ```python
 d.freeze_rotation()  # freeze rotation
 d.freeze_rotation(False)  # un-freeze rotation
 ```
 
-## Take screenshot
+### Take screenshot
 
 ```python
 d.screenshot("home.png")  # take screenshot and save to local file "home.png"
 ```
 
-## Dump Window Hierarchy
+### Dump Window Hierarchy
 
 ```python
 d.dump("hierarchy.xml")  # dump the widown hierarchy and save to local file "hierarchy.xml"
 ```
 
-## Open notification or quick settings
+### Open notification or quick settings
 
 ```python
 d.open.notification()   # open notification
 d.open.quick_settings() # open quick settings
 ```
 
-## Wait for idle or window update
+### Wait for idle or window update
 
 ```python
 d.wait.idle()   # wait for current window to idle
 d.wait.update() # wait until window update event occurs
 ```
 
-## Selector
+### Selector
 
 Selector is to identify specific ui object in current window.
 
@@ -187,13 +187,14 @@ Selector supports next parameters. Please refer to [UiSelector java doc](http://
 -   `fromParent`
 -   `childSelector`
 
-### Check if the specific ui object exists
+#### Check if the specific ui object exists
 
 ```python
-d(text="Settings").exist() # True if exists, else False 
+d(text="Settings").exists # True if exists, else False
+d.exists(text="Settings") # alias of above property.
 ```
 
-### Retrieve the info of the specific ui object
+#### Retrieve the info of the specific ui object
 
 ```python
 d(text="Settings").info
@@ -221,7 +222,7 @@ d(text="Settings").info
 # u'checkable': False}
 ```
 
-### Perform click on the specific ui object
+#### Perform click on the specific ui object
 
 ```python
 d(text="Settings").click()  # click on the center of the specific ui object
@@ -230,7 +231,7 @@ d(text="Settings").click.topleft()  # click on the topleft corner of the specifi
 d(text="Settings").click.wait()  # click and wait until the new window update
 ```
 
-### Perform long click on the specific ui object
+#### Perform long click on the specific ui object
 
 ```python
 d(text="Settings").long_click()  # long click on the center of the specific ui object
@@ -238,21 +239,21 @@ d(text="Settings").long_click.bottomright()  # long click on the bottomright cor
 d(text="Settings").long_click.topleft()  # long click on the topleft corner of the specific ui object
 ```
 
-### Set/Clear text of editable field
+#### Set/Clear text of editable field
 
 ```python
 d(text="Settings").clear_text()  # clear the text
 d(text="Settings").set_text("My text...")  # set the text
 ```
 
-### Drag the ui object to another point or ui object
+#### Drag the ui object to another point or ui object
 
 ```python
 d(text="Settings").drag.to(x, y, steps=100)  # drag the ui object to point (x, y)
 d(text="Settings").drag.to(text="Clock", steps=50)  # drag the ui object to another ui object(center)
 ```
 
-### Swipe from the center of the ui object to its edge
+#### Swipe from the center of the ui object to its edge
 
 Swipe supports 4 directions:
 
@@ -268,7 +269,7 @@ d(text="Settings").swipe.up(steps=10)
 d(text="Settings").swipe.down()
 ```
 
-### Two point gesture from one point to another
+#### Two point gesture from one point to another
 
 ```python
 from uiautomator import point
@@ -276,7 +277,7 @@ from uiautomator import point
 d(text="Settings").gesture(point(sx1, sy1), point(sx2, sy2)).to(point(ex1, ey1), point(ex2, ey2))
 ```
 
-### Two point gesture on the specific ui object
+#### Two point gesture on the specific ui object
 
 Supports two gestures:
 - `In`, from edge to center
@@ -287,7 +288,7 @@ d(text="Settings").pinch.In(percent=100, steps=10)  # from edge to center. here 
 d(text="Settings").pinch.Out()  # from center to edge
 ```
 
-### Perform fling on the specific ui object(scrollable)
+#### Perform fling on the specific ui object(scrollable)
 
 Possible properties:
 - `horiz` or `vert`
@@ -301,7 +302,7 @@ d(scrollable=True).fling.horiz.toBeginning(max_swipes=1000)  # fling to beginnin
 d(scrollable=True).fling.toEnd()  # fling to end vertically
 ```
 
-### Perform scroll on the specific ui object(scrollable)
+#### Perform scroll on the specific ui object(scrollable)
 
 Possible properties:
 - `horiz` or `vert`
@@ -316,20 +317,20 @@ d(scrollable=True).scroll.toEnd()  # scroll to end vertically
 d(scrollable=True).scroll.to(text="Security")  # scroll forward vertically until specific ui object appears
 ```
 
-### Wait until the specific ui object appears or gone
+#### Wait until the specific ui object appears or gone
 
 ```python
-d(text="Settings").wait.exist(timeout=3000)  # wait until the ui object appears
+d(text="Settings").wait.exists(timeout=3000)  # wait until the ui object appears
 d(text="Settings").wait.gone(timeout=1000)  # wait until the ui object gone
 ```
 
 ---
 
-# Issues
+## Issues
 
 Please submit ticket on [github issues](https://github.com/xiaocong/uiautomator/issues) in case of any issue.
 
-# Notes
+## Notes
 
 - Android [uiautomator][] works on Android 4.1+, so before using it, make sure your device is Android4.1+.
 - Some methods are only working on Android 4.2/4.3, so you'd better read detailed [java documentation of uiautomator](http://developer.android.com/tools/help/uiautomator/index.html) before using it.
