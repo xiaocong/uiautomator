@@ -9,6 +9,7 @@ import urllib2
 import subprocess
 import time
 import itertools
+import tempfile
 
 try:
     import jsonrpclib
@@ -37,8 +38,9 @@ def param_to_property(**props):
                 raise
 
         def __call__(self, *args, **kwargs):
-            self.kwargs.update(kwargs)
-            return self.func(*args, **self.kwargs)
+            kwargs.update(self.kwargs)
+            self.kwargs = {}
+            return self.func(*args, **kwargs)
     return Wrapper
 
 
@@ -175,7 +177,6 @@ class _AutomatorServer(object):
 
     def __init__(self):
         self.__automator_process = None
-        self.__jar_pushed = False
         self.__local_port = 9008
         self.__device_port = 9008
 
@@ -183,19 +184,17 @@ class _AutomatorServer(object):
         return self
 
     def __download_and_push(self):
-        if not self.__jar_pushed:
-            lib_path = "./libs/"
-            if not os.path.exists(lib_path):
-                os.mkdir(lib_path)
-            for jar in self.__jar_files:
-                jarfile = lib_path + jar
-                if not os.path.exists(jarfile):  # not exist, then download it
-                    u = urllib2.urlopen(self.__jar_files[jar])
-                    with open(jarfile, 'w') as f:
-                        f.write(u.read())
-                # push to device
-                adb_cmd("push", jarfile, "/data/local/tmp/").wait()
-        self.__jar_pushed = True
+        lib_path = os.path.join(tempfile.gettempdir(), "libs")
+        if not os.path.exists(lib_path):
+            os.mkdir(lib_path)
+        for jar in self.__jar_files:
+            jarfile = os.path.join(lib_path, jar)
+            if not os.path.exists(jarfile):  # not exist, then download it
+                u = urllib2.urlopen(self.__jar_files[jar])
+                with open(jarfile, 'w') as f:
+                    f.write(u.read())
+            # push to device
+            adb_cmd("push", jarfile, "/data/local/tmp/").wait()
         return self.__jar_files.keys()
 
     def __adb_forward(self, local_port, device_port):
@@ -234,9 +233,11 @@ class _AutomatorServer(object):
 
     @property
     def alive(self):
+        '''Check if the rpc server is alive.'''
         return self.__can_ping()
 
     def stop(self):
+        '''Stop the rpc server.'''
         if self.__automator_process is not None and self.__automator_process.poll() is None:
             try:
                 urllib2.urlopen(self.stop_uri)
@@ -357,6 +358,7 @@ class _AutomatorDevice(object):
     @property
     def open(self):
         '''
+        Open notification or quick settings.
         Usage:
         d.open.notification()
         d.open.quick_settings()
