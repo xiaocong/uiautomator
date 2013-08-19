@@ -259,7 +259,7 @@ Swipe supports 4 directions:
 -   `left`
 -   `right`
 -   `top`
--   `bottom
+-   `bottom`
 
 ```python
 d(text="Settings").swipe.right()
@@ -290,10 +290,11 @@ d(text="Settings").pinch.Out()  # from center to edge
 ### Perform fling on the specific ui object(scrollable)
 
 Possible properties:
-- `horiz`(**default**) or `vert`
-- `forward`(**default**) or `backward` or `toBeginning` or `toEnd`
+- `horiz` or `vert`
+- `forward` or `backward` or `toBeginning` or `toEnd`
 
 ```python
+d(scrollable=True).fling()  # fling forward(default) vertically(default) 
 d(scrollable=True).fling.horiz.forward()  # fling forward horizentally
 d(scrollable=True).fling.vert.backward()  # fling backward vertically
 d(scrollable=True).fling.horiz.toBeginning(max_swipes=1000)  # fling to beginning horizentally
@@ -303,10 +304,11 @@ d(scrollable=True).fling.toEnd()  # fling to end vertically
 ### Perform scroll on the specific ui object(scrollable)
 
 Possible properties:
-- `horiz`(**default**) or `vert`
-- `forward`(**default**) or `backward` or `toBeginning` or `toEnd`, or `to`
+- `horiz` or `vert`
+- `forward` or `backward` or `toBeginning` or `toEnd`, or `to`
 
 ```python
+d(scrollable=True).scroll(stpes=10)  # scroll forward(default) vertically(default)
 d(scrollable=True).scroll.horiz.forward(steps=100)  # scroll forward horizentally
 d(scrollable=True).scroll.vert.backward()  # scroll backward vertically
 d(scrollable=True).scroll.horiz.toBeginning(steps=100, max_swipes=1000)  # scroll to beginning horizentally
