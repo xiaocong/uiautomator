@@ -16,7 +16,7 @@ try:
 except ImportError:
     pass
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "Xiaocong He"
 
 
@@ -440,6 +440,10 @@ class _AutomatorDevice(object):
                 return obj.server.jsonrpc.waitForWindowUpdate(package_name, timeout)
         return _wait
 
+    def exists(self, **kwargs):
+        '''Check if the specified ui object by kwargs exists.'''
+        return self(**kwargs).exists
+
 
 class _AutomatorDeviceObject(object):
 
@@ -467,7 +471,8 @@ class _AutomatorDeviceObject(object):
         self.__selector["fromParent"] = SelectorBuilder(**kwargs)
         return self
 
-    def exist(self):
+    @property
+    def exists(self):
         '''check if the object exists in current window.'''
         return self.jsonrpc.exist(self.selector)
 
@@ -700,13 +705,13 @@ class _AutomatorDeviceObject(object):
         Wait until the ui object gone or exist.
         Usage:
         d(text="Clock").wait.gone()  # wait until it's gone.
-        d(text="Settings").wait.exist() # wait until it appears.
+        d(text="Settings").wait.exists() # wait until it appears.
         '''
         obj = self
 
-        @param_to_property(action=["exist", "gone"])
+        @param_to_property(action=["exists", "gone"])
         def _wait(action, timeout=3000):
-            if action is "exist":
+            if action is "exists":
                 return obj.jsonrpc.waitForExists(obj.selector, timeout)
             elif action is "gone":
                 return obj.jsonrpc.waitUntilGone(obj.selector, timeout)
