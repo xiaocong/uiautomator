@@ -19,6 +19,7 @@ except ImportError:
 
 __version__ = "0.1.3"
 __author__ = "Xiaocong He"
+__all__ = ["device", "rect", "point", "adb_cmd", "adb_devices", "adb_forward_list"]
 
 
 def param_to_property(**props):
@@ -179,16 +180,26 @@ def adb_cmd(*args):
 
 def adb_devices():
     '''check if device is attached.'''
-    out = adb_cmd("devices").communicate()[0]
+    out = adb_cmd("devices").communicate()[0].decode("utf-8")
     match = "List of devices attached"
-    index = out.decode("utf-8").find(match)
+    index = out.find(match)
     if index < 0:
         raise EnvironmentError("adb is not working.")
     return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
 
 
 def adb_forward(local_port, device_port):
-    adb_cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+    return adb_cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).poll()
+
+
+def adb_forward_list():
+    lines = adb_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+    forwards = [line.strip().split() for line in lines]
+    return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
+
+
+def server_port():
+    return int(os.environ["JSONRPC_PORT"]) if "JSONRPC_PORT" in os.environ else 9008
 
 
 class _AutomatorServer(object):
@@ -202,8 +213,6 @@ class _AutomatorServer(object):
 
     def __init__(self):
         self.__automator_process = None
-        self.__local_port = 9008
-        self.__device_port = 9008
 
     def __get__(self, instance, owner):
         return self
@@ -222,45 +231,58 @@ class _AutomatorServer(object):
             adb_cmd("push", jarfile, "/data/local/tmp/").wait()
         return self.__jar_files.keys()
 
-    def __adb_forward(self, local_port, device_port):
-        adb_cmd("forward", "tcp:%d" %
-                local_port, "tcp:%d" % device_port).wait()
-
     @property
     def jsonrpc(self):
         if not self.alive:  # start server if not
             self.start()
         return JsonRPCClient(self.rpc_uri)
 
-    def start(self, local_port=9008, device_port=9008): #TODO add customized local remote port.
-        self.__local_port = local_port
-        self.__device_port = device_port
+    @property
+    def android_serial(self):
         devices = adb_devices()
         if len(devices) is 0:
             raise EnvironmentError("Device not attached.")
-        elif len(devices) > 1 and "ANDROID_SERIAL" not in os.environ:
-            raise EnvironmentError(
-                "Multiple devices attaches but $ANDROID_SERIAL environment not set.")
+        elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
+            raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
+        if "ANDROID_SERIAL" not in os.environ:
+            os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
+        return os.environ["ANDROID_SERIAL"]
 
+    @property
+    def local_port(self):
+        serial, ports =  self.android_serial, adb_forward_list()
+        return ports[serial][0] if serial in ports else None
+
+    def start(self):
         files = self.__download_and_push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
         self.__automator_process = adb_cmd(*cmd)
-        adb_forward(local_port, 9008)  # TODO device_port, currently only 9008
-        while not self.__can_ping():
-            time.sleep(0.1)
+        if not self.local_port:
+            local_port = 9008
+            ports = [v[0] for p, v in adb_forward_list().items()]
+            while local_port in ports:
+                local_port += 1
+            adb_forward(local_port, server_port())
 
-    def __can_ping(self):
+        timeout = 5
+        while not self.ping() and timeout > 0:
+            time.sleep(0.1)
+            timeout -= 0.1
+        if timeout <= 0:
+            raise IOError("RPC server not started!")
+
+    def ping(self):
         try:
-            return JsonRPCClient(self.rpc_uri).ping() == "pong" # not use self.jsonrpc here to avoid recursive invoke
+            return JsonRPCClient(self.rpc_uri).ping() if self.local_port else None
         except:
-            return False
+            return None
 
     @property
     def alive(self):
         '''Check if the rpc server is alive.'''
-        return self.__can_ping()
+        return self.ping() == "pong"
 
     def stop(self):
         '''Stop the rpc server.'''
@@ -273,17 +295,18 @@ class _AutomatorServer(object):
             finally:
                 self.__automator_process = None
         out = adb_cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
-        index = out[0].split().index("PID")
-        for line in out[1:]:
-            adb_cmd("shell", "kill", "-9", line.split()[index]).wait()
+        if out:
+            index = out[0].split().index("PID")
+            for line in out[1:]:
+                adb_cmd("shell", "kill", "-9", line.split()[index]).wait()
 
     @property
     def stop_uri(self):
-        return "http://localhost:%d/stop" % self.__local_port
+        return "http://localhost:%d/stop" % self.local_port
 
     @property
     def rpc_uri(self):
-        return "http://localhost:%d/jsonrpc/device" % self.__local_port
+        return "http://localhost:%d/jsonrpc/device" % self.local_port
 
 
 class _AutomatorDevice(object):
@@ -303,10 +326,6 @@ class _AutomatorDevice(object):
 
     def __call__(self, **kwargs):
         return _AutomatorDeviceObject(self.server.jsonrpc, **kwargs)
-
-    def ping(self):
-        '''ping the device, by default it returns "pong".'''
-        return self.server.jsonrpc.ping()
 
     @property
     def info(self):
@@ -737,13 +756,3 @@ class _AutomatorDeviceObject(object):
         return _wait
 
 device = _AutomatorDevice()
-
-if __name__ == "__main__":
-    device.server.stop()
-    device.ping()
-    device.screen.on()
-    if device(text="Clock").exists:
-        device(text="Clock").click()
-    device.press.back()
-    device(scrollable=True).scroll.horiz.forward()
-    device.screen.off()
