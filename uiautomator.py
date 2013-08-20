@@ -88,7 +88,7 @@ class _JsonRPCClient(object):
 JsonRPCClient = _JsonRPCClient
 
 
-class _SelectorBuilder(object):
+class _SelectorBuilder(dict):
 
     """The class is to build parameters for UiSelector passed to Android device.
     """
@@ -124,41 +124,22 @@ class _SelectorBuilder(object):
     __mask = "mask"
 
     def __init__(self, **kwargs):
-        self._dict = {k: v[1] for k, v in self.__fields.items()}
-        self._dict[self.__mask] = 0
-
-        for k, v in kwargs.items():
-            if k in self.__fields:
-                self[k] = v
-
-    def __getitem__(self, k):
-        return self._dict[k]
+        super(_SelectorBuilder, self).__setitem__(self.__mask, 0)
+        for k in kwargs:
+            self[k] = kwargs[k]
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            self._dict[k] = v  # call the method in superclass
-            self._dict[self.__mask] = self[self.__mask] | self.__fields[k][0]
+            super(_SelectorBuilder, self).__setitem__(k, v)
+            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
 
     def __delitem__(self, k):
         if k in self.__fields:
-            self[k] = self.__fields[k][1]
-            self[self.__mask] = self[self.__mask] & ~self.__fields[k][0]
+            super(_SelectorBuilder, self).__setitem__(k, self.__fields[k][1])
+            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
-    def build(self):
-        d = self._dict.copy()
-        for k, v in d.items():
-            # if isinstance(v, SelectorBuilder):
-            # TODO workaround.
-            # something wrong in the module loader, likely SelectorBuilder was
-            # loaded as another type...
-            if k in ["childSelector", "fromParent"] and v is not None:
-                d[k] = v.build()
-        return d
-
-    def keys(self):
-        return self.__fields.keys()
 
 SelectorBuilder = _SelectorBuilder
 
@@ -494,25 +475,21 @@ class _AutomatorDeviceObject(object):
     '''Represent a UiObject, on which user can perform actions, such as click, set text
     '''
 
-    __alias = {'description': "contentDescription", "class": "className"}
+    __alias = {'description': "contentDescription"}
 
     def __init__(self, jsonrpc, **kwargs):
         self.jsonrpc = jsonrpc
-        self.__selector = SelectorBuilder(**kwargs)
+        self.selector = SelectorBuilder(**kwargs)
         self.__actions = []
-
-    @property
-    def selector(self):
-        return self.__selector.build()
 
     def child_selector(self, **kwargs):
         '''set chileSelector.'''
-        self.__selector["childSelector"] = SelectorBuilder(**kwargs)
+        self.selector["childSelector"] = SelectorBuilder(**kwargs)
         return self
 
     def from_parent(self, **kwargs):
         '''set fromParent selector.'''
-        self.__selector["fromParent"] = SelectorBuilder(**kwargs)
+        self.selector["fromParent"] = SelectorBuilder(**kwargs)
         return self
 
     @property
@@ -603,11 +580,9 @@ class _AutomatorDeviceObject(object):
 
             def to(self, *args, **kwargs):
                 if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
-                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(
-                        obj.selector, x, y, steps)
+                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(obj.selector, x, y, steps)
                 else:
-                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(
-                        obj.selector, SelectorBuilder(**kwargs).build(), steps)
+                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, SelectorBuilder(**kwargs), steps)
                 return drag_to(*args, **kwargs)
         return Drag()
 
@@ -725,7 +700,7 @@ class _AutomatorDeviceObject(object):
             return obj.jsonrpc.scrollToEnd(obj.selector, vertical, max_swipes, steps)
 
         def __scroll_to(vertical, **kwargs):
-            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs).build(), vertical)
+            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs), vertical)
 
         @param_to_property(
             dimention=["vert", "vertically", "vertical",
