@@ -267,7 +267,7 @@ class _AutomatorServer(object):
             adb_forward(local_port, server_port())
 
         timeout = 5
-        while not self.ping() and timeout > 0:
+        while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
         if timeout <= 0:
