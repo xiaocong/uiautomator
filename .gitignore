@@ -3,6 +3,7 @@ bin
 libs
 build
 dist
+uiautomator.egg-info
 .classpath
 .project
 *.pyc

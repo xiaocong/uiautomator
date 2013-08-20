@@ -5,18 +5,19 @@
 """
 
 import os
-import urllib2
 import subprocess
 import time
 import itertools
 import tempfile
+import json
+import hashlib
 
 try:
-    import jsonrpclib
+    import urllib2
 except ImportError:
-    pass
+    import urllib.request as urllib2
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "Xiaocong He"
 
 
@@ -44,38 +45,81 @@ def param_to_property(**props):
     return Wrapper
 
 
+class _JsonRPCClient(object):
+
+    def __init__(self, url, timeout=30):
+        self.url = url
+        self.timeout = timeout
+
+    def __getattribute__(self, method):
+        try:
+            return super(_JsonRPCClient, self).__getattribute__(method)
+        except AttributeError:
+            obj = self
+
+            class Method(object):
+
+                def __call__(self, *args, **kwargs):
+                    if args and kwargs:
+                        raise SyntaxError(
+                            "Could not accept both *args and **kwargs as JSONRPC parameters.")
+                    data = {"jsonrpc": "2.0", "method": method, "id": self.id()}
+                    if args:
+                        data["params"] = args
+                    elif kwargs:
+                        data["params"] = kwargs
+                    req = urllib2.Request(obj.url, json.dumps(data).encode("utf-8"), {"Content-type": "application/json"})
+                    result=urllib2.urlopen(req, timeout=obj.timeout)
+                    if result is None or result.getcode() != 200:
+                        raise Exception("Error reponse from jsonrpc server.")
+                    jsonresult = json.loads(result.read().decode("utf-8"))
+                    if "error" in jsonresult:
+                        raise Exception("Error response. Error code: %d, Error message: %s" %
+                                    (jsonresult["error"]["code"], jsonresult["error"]["message"]))
+                    return jsonresult["result"]
+
+                def id(self):
+                    m = hashlib.md5()
+                    m.update(("%s at %f" % (method, time.time())).encode("utf-8"))
+                    return m.hexdigest()
+
+            return Method()
+
+JsonRPCClient = _JsonRPCClient
+
+
 class _SelectorBuilder(object):
 
     """The class is to build parameters for UiSelector passed to Android device.
     """
     __fields = {
-        "text": (0x01L, None),  # MASK_TEXT,
-        "textContains": (0x02L, None),  # MASK_TEXTCONTAINS,
-        "textMatches": (0x04L, None),  # MASK_TEXTMATCHES,
-        "textStartsWith": (0x08L, None),  # MASK_TEXTSTARTSWITH,
-        "className": (0x10L, None),  # MASK_CLASSNAME
-        "classNameMatches": (0x20L, None),  # MASK_CLASSNAMEMATCHES
-        "description": (0x40L, None),  # MASK_DESCRIPTION
-        "descriptionContains": (0x80L, None),  # MASK_DESCRIPTIONCONTAINS
-        "descriptionMatches": (0x0100L, None),  # MASK_DESCRIPTIONMATCHES
-        "descriptionStartsWith": (0x0200L, None),  # MASK_DESCRIPTIONSTARTSWITH
-        "checkable": (0x0400L, False),  # MASK_CHECKABLE
-        "checked": (0x0800L, False),  # MASK_CHECKED
-        "clickable": (0x1000L, False),  # MASK_CLICKABLE
-        "longClickable": (0x2000L, False),  # MASK_LONGCLICKABLE,
-        "scrollable": (0x4000L, False),  # MASK_SCROLLABLE,
-        "enabled": (0x8000L, False),  # MASK_ENABLED,
-        "focusable": (0x010000L, False),  # MASK_FOCUSABLE,
-        "focused": (0x020000L, False),  # MASK_FOCUSED,
-        "selected": (0x040000L, False),  # MASK_SELECTED,
-        "packageName": (0x080000L, None),  # MASK_PACKAGENAME,
-        "packageNameMatches": (0x100000L, None),  # MASK_PACKAGENAMEMATCHES,
-        "resourceId": (0x200000L, None),  # MASK_RESOURCEID,
-        "resourceIdMatches": (0x400000L, None),  # MASK_RESOURCEIDMATCHES,
-        "index": (0x800000L, 0),  # MASK_INDEX,
-        "instance": (0x01000000L, 0),  # MASK_INSTANCE,
-        "fromParent": (0x02000000L, None),  # MASK_FROMPARENT,
-        "childSelector": (0x04000000L, None)  # MASK_CHILDSELECTOR
+        "text": (0x01, None),  # MASK_TEXT,
+        "textContains": (0x02, None),  # MASK_TEXTCONTAINS,
+        "textMatches": (0x04, None),  # MASK_TEXTMATCHES,
+        "textStartsWith": (0x08, None),  # MASK_TEXTSTARTSWITH,
+        "className": (0x10, None),  # MASK_CLASSNAME
+        "classNameMatches": (0x20, None),  # MASK_CLASSNAMEMATCHES
+        "description": (0x40, None),  # MASK_DESCRIPTION
+        "descriptionContains": (0x80, None),  # MASK_DESCRIPTIONCONTAINS
+        "descriptionMatches": (0x0100, None),  # MASK_DESCRIPTIONMATCHES
+        "descriptionStartsWith": (0x0200, None),  # MASK_DESCRIPTIONSTARTSWITH
+        "checkable": (0x0400, False),  # MASK_CHECKABLE
+        "checked": (0x0800, False),  # MASK_CHECKED
+        "clickable": (0x1000, False),  # MASK_CLICKABLE
+        "longClickable": (0x2000, False),  # MASK_LONGCLICKABLE,
+        "scrollable": (0x4000, False),  # MASK_SCROLLABLE,
+        "enabled": (0x8000, False),  # MASK_ENABLED,
+        "focusable": (0x010000, False),  # MASK_FOCUSABLE,
+        "focused": (0x020000, False),  # MASK_FOCUSED,
+        "selected": (0x040000, False),  # MASK_SELECTED,
+        "packageName": (0x080000, None),  # MASK_PACKAGENAME,
+        "packageNameMatches": (0x100000, None),  # MASK_PACKAGENAMEMATCHES,
+        "resourceId": (0x200000, None),  # MASK_RESOURCEID,
+        "resourceIdMatches": (0x400000, None),  # MASK_RESOURCEIDMATCHES,
+        "index": (0x800000, 0),  # MASK_INDEX,
+        "instance": (0x01000000, 0),  # MASK_INSTANCE,
+        "fromParent": (0x02000000, None),  # MASK_FROMPARENT,
+        "childSelector": (0x04000000, None)  # MASK_CHILDSELECTOR
     }
     __mask = "mask"
 
@@ -156,7 +200,7 @@ def adb_devices():
     '''check if device is attached.'''
     out = adb_cmd("devices").communicate()[0]
     match = "List of devices attached"
-    index = out.find(match)
+    index = out.decode("utf-8").find(match)
     if index < 0:
         raise EnvironmentError("adb is not working.")
     return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
@@ -191,7 +235,7 @@ class _AutomatorServer(object):
             jarfile = os.path.join(lib_path, jar)
             if not os.path.exists(jarfile):  # not exist, then download it
                 u = urllib2.urlopen(self.__jar_files[jar])
-                with open(jarfile, 'w') as f:
+                with open(jarfile, 'wb') as f:
                     f.write(u.read())
             # push to device
             adb_cmd("push", jarfile, "/data/local/tmp/").wait()
@@ -205,7 +249,7 @@ class _AutomatorServer(object):
     def jsonrpc(self):
         if not self.alive:  # start server if not
             self.start()
-        return jsonrpclib.Server(self.rpc_uri)
+        return JsonRPCClient(self.rpc_uri)
 
     def start(self, local_port=9008, device_port=9008): #TODO add customized local remote port.
         self.__local_port = local_port
@@ -218,8 +262,9 @@ class _AutomatorServer(object):
                 "Multiple devices attaches but $ANDROID_SERIAL environment not set.")
 
         files = self.__download_and_push()
-        cmd = ["shell", "uiautomator", "runtest"] + \
-            files + ["-c", "com.github.uiautomatorstub.Stub"]
+        cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
+                                   files,
+                                   ["-c", "com.github.uiautomatorstub.Stub"]))
         self.__automator_process = adb_cmd(*cmd)
         adb_forward(local_port, 9008)  # TODO device_port, currently only 9008
         while not self.__can_ping():
@@ -227,7 +272,7 @@ class _AutomatorServer(object):
 
     def __can_ping(self):
         try:
-            return jsonrpclib.Server(self.rpc_uri).ping() == "pong" # not use self.jsonrpc here to avoid recursive invoke
+            return JsonRPCClient(self.rpc_uri).ping() == "pong" # not use self.jsonrpc here to avoid recursive invoke
         except:
             return False
 
@@ -246,8 +291,7 @@ class _AutomatorServer(object):
                 self.__automator_process.kill()
             finally:
                 self.__automator_process = None
-        out = adb_cmd("shell", "ps", "-C", "uiautomator").communicate()[
-            0].strip().splitlines()
+        out = adb_cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
         index = out[0].split().index("PID")
         for line in out[1:]:
             adb_cmd("shell", "kill", "-9", line.split()[index]).wait()
@@ -718,3 +762,13 @@ class _AutomatorDeviceObject(object):
         return _wait
 
 device = _AutomatorDevice()
+
+if __name__ == "__main__":
+    device.server.stop()
+    device.ping()
+    device.screen.on()
+    if device(text="Clock").exists:
+        device(text="Clock").click()
+    device.press.back()
+    device(scrollable=True).scroll.horiz.forward()
+    device.screen.off()

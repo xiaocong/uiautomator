@@ -9,7 +9,7 @@ except ImportError:
     from distutils.core import setup
 
 
-requires = ["jsonrpclib"]
+requires = []
 
 setup(name='uiautomator',
       version=uiautomator.__version__,
