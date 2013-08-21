@@ -17,8 +17,9 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __author__ = "Xiaocong He"
+__all__ = ["device", "rect", "point", "adb"]
 
 
 def param_to_property(**props):
@@ -88,7 +89,7 @@ class _JsonRPCClient(object):
 JsonRPCClient = _JsonRPCClient
 
 
-class _SelectorBuilder(object):
+class _SelectorBuilder(dict):
 
     """The class is to build parameters for UiSelector passed to Android device.
     """
@@ -124,41 +125,22 @@ class _SelectorBuilder(object):
     __mask = "mask"
 
     def __init__(self, **kwargs):
-        self._dict = {k: v[1] for k, v in self.__fields.items()}
-        self._dict[self.__mask] = 0
-
-        for k, v in kwargs.items():
-            if k in self.__fields:
-                self[k] = v
-
-    def __getitem__(self, k):
-        return self._dict[k]
+        super(_SelectorBuilder, self).__setitem__(self.__mask, 0)
+        for k in kwargs:
+            self[k] = kwargs[k]
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            self._dict[k] = v  # call the method in superclass
-            self._dict[self.__mask] = self[self.__mask] | self.__fields[k][0]
+            super(_SelectorBuilder, self).__setitem__(k, v)
+            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
 
     def __delitem__(self, k):
         if k in self.__fields:
-            self[k] = self.__fields[k][1]
-            self[self.__mask] = self[self.__mask] & ~self.__fields[k][0]
+            super(_SelectorBuilder, self).__setitem__(k, self.__fields[k][1])
+            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
-    def build(self):
-        d = self._dict.copy()
-        for k, v in d.items():
-            # if isinstance(v, SelectorBuilder):
-            # TODO workaround.
-            # something wrong in the module loader, likely SelectorBuilder was
-            # loaded as another type...
-            if k in ["childSelector", "fromParent"] and v is not None:
-                d[k] = v.build()
-        return d
-
-    def keys(self):
-        return self.__fields.keys()
 
 SelectorBuilder = _SelectorBuilder
 
@@ -171,43 +153,57 @@ def point(x=0, y=0):
     return {"x": x, "y": y}
 
 
-_adb_cmd = None
+class _Adb(object):
+    def __init__(self):
+        self.__adb_cmd = None
 
-
-def get_adb():
-    global _adb_cmd
-    if _adb_cmd is None:
-        if "ANDROID_HOME" in os.environ:
-            _adb_cmd = os.environ["ANDROID_HOME"] + "/platform-tools/adb"
-            if not os.path.exists(_adb_cmd):
-                raise EnvironmentError(
-                    "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
-        else:
-            import distutils
-            _adb_cmd = distutils.spawn.find_executable("adb")
-            if _adb_cmd is not None:
-                _adb_cmd = os.path.realpath(cmd)
+    @property
+    def adb(self):
+        if self.__adb_cmd is None:
+            if "ANDROID_HOME" in os.environ:
+                adb_cmd = os.environ["ANDROID_HOME"] + "/platform-tools/adb"
+                if not os.path.exists(adb_cmd):
+                    raise EnvironmentError(
+                        "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
             else:
-                raise EnvironmentError("$ANDROID_HOME environment not set.")
-    return _adb_cmd
+                import distutils
+                adb_cmd = distutils.spawn.find_executable("adb")
+                if adb_cmd:
+                    adb_cmd = os.path.realpath(cmd)
+                else:
+                    raise EnvironmentError("$ANDROID_HOME environment not set.")
+            self.__adb_cmd = adb_cmd
+        return self.__adb_cmd
+
+    def cmd(self, *args):
+        '''adb command. return the subprocess.Popen object.'''
+        return subprocess.Popen(["%s %s" % (self.adb, " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    @property
+    def devices(self):
+        '''get a dict of attached devices. key is the device serial, value is device name.'''
+        out = self.cmd("devices").communicate()[0].decode("utf-8")
+        match = "List of devices attached"
+        index = out.find(match)
+        if index < 0:
+            raise EnvironmentError("adb is not working.")
+        return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
+
+    def forward(self, local_port, device_port):
+        '''adb port forward. return 0 if success, else non-zero.'''
+        return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+
+    @property
+    def forward_list(self):
+        lines = self.cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+        forwards = [line.strip().split() for line in lines]
+        return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
+
+adb = _Adb()
 
 
-def adb_cmd(*args):
-    return subprocess.Popen(["%s %s" % (get_adb(), " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def adb_devices():
-    '''check if device is attached.'''
-    out = adb_cmd("devices").communicate()[0]
-    match = "List of devices attached"
-    index = out.decode("utf-8").find(match)
-    if index < 0:
-        raise EnvironmentError("adb is not working.")
-    return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
-
-
-def adb_forward(local_port, device_port):
-    adb_cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+def server_port():
+    return int(os.environ["JSONRPC_PORT"]) if "JSONRPC_PORT" in os.environ else 9008
 
 
 class _AutomatorServer(object):
@@ -220,9 +216,8 @@ class _AutomatorServer(object):
     }
 
     def __init__(self):
+        self.__local_port = None
         self.__automator_process = None
-        self.__local_port = 9008
-        self.__device_port = 9008
 
     def __get__(self, instance, owner):
         return self
@@ -238,12 +233,8 @@ class _AutomatorServer(object):
                 with open(jarfile, 'wb') as f:
                     f.write(u.read())
             # push to device
-            adb_cmd("push", jarfile, "/data/local/tmp/").wait()
+            adb.cmd("push", jarfile, "/data/local/tmp/").wait()
         return self.__jar_files.keys()
-
-    def __adb_forward(self, local_port, device_port):
-        adb_cmd("forward", "tcp:%d" %
-                local_port, "tcp:%d" % device_port).wait()
 
     @property
     def jsonrpc(self):
@@ -251,39 +242,65 @@ class _AutomatorServer(object):
             self.start()
         return JsonRPCClient(self.rpc_uri)
 
-    def start(self, local_port=9008, device_port=9008): #TODO add customized local remote port.
-        self.__local_port = local_port
-        self.__device_port = device_port
-        devices = adb_devices()
-        if len(devices) is 0:
+    @property
+    def android_serial(self):
+        devices = adb.devices
+        if not devices:
             raise EnvironmentError("Device not attached.")
-        elif len(devices) > 1 and "ANDROID_SERIAL" not in os.environ:
-            raise EnvironmentError(
-                "Multiple devices attaches but $ANDROID_SERIAL environment not set.")
+        elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
+            raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
+        if "ANDROID_SERIAL" not in os.environ:
+            os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
+        return os.environ["ANDROID_SERIAL"]
 
+    @property
+    def local_port(self):
+        if self.__local_port:
+            return self.__local_port
+
+        serial, ports =  self.android_serial, adb.forward_list
+        return ports[serial][0] if serial in ports else None
+
+    @local_port.setter
+    def local_port(self, port):
+        self.__local_port = port
+
+    def start(self):
         files = self.__download_and_push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.__automator_process = adb_cmd(*cmd)
-        adb_forward(local_port, 9008)  # TODO device_port, currently only 9008
-        while not self.__can_ping():
-            time.sleep(0.1)
+        self.__automator_process = adb.cmd(*cmd)
+        if not self.local_port:
+            ports = [v[0] for p, v in adb.forward_list.items()]
+            for local_port in range(9008, 9200):
+                if local_port not in ports and adb.forward(local_port, server_port()) == 0:
+                    self.local_port = local_port
+                    break
+            else:
+                raise IOError("Error during start jsonrpc server!")
 
-    def __can_ping(self):
+        timeout = 5
+        while not self.alive and timeout > 0:
+            time.sleep(0.1)
+            timeout -= 0.1
+        if timeout <= 0:
+            raise IOError("RPC server not started!")
+
+    def ping(self):
         try:
-            return JsonRPCClient(self.rpc_uri).ping() == "pong" # not use self.jsonrpc here to avoid recursive invoke
+            return JsonRPCClient(self.rpc_uri).ping() if self.local_port else None
         except:
-            return False
+            return None
 
     @property
     def alive(self):
         '''Check if the rpc server is alive.'''
-        return self.__can_ping()
+        return self.ping() == "pong"
 
     def stop(self):
         '''Stop the rpc server.'''
-        if self.__automator_process is not None and self.__automator_process.poll() is None:
+        if self.__automator_process and self.__automator_process.poll() is None:
             try:
                 urllib2.urlopen(self.stop_uri)
                 self.__automator_process.wait()
@@ -291,18 +308,19 @@ class _AutomatorServer(object):
                 self.__automator_process.kill()
             finally:
                 self.__automator_process = None
-        out = adb_cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
-        index = out[0].split().index("PID")
-        for line in out[1:]:
-            adb_cmd("shell", "kill", "-9", line.split()[index]).wait()
+        out = adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
+        if out:
+            index = out[0].split().index("PID")
+            for line in out[1:]:
+                adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
 
     @property
     def stop_uri(self):
-        return "http://localhost:%d/stop" % self.__local_port
+        return "http://localhost:%d/stop" % self.local_port
 
     @property
     def rpc_uri(self):
-        return "http://localhost:%d/jsonrpc/device" % self.__local_port
+        return "http://localhost:%d/jsonrpc/device" % self.local_port
 
 
 class _AutomatorDevice(object):
@@ -322,10 +340,6 @@ class _AutomatorDevice(object):
 
     def __call__(self, **kwargs):
         return _AutomatorDeviceObject(self.server.jsonrpc, **kwargs)
-
-    def ping(self):
-        '''ping the device, by default it returns "pong".'''
-        return self.server.jsonrpc.ping()
 
     @property
     def info(self):
@@ -348,9 +362,9 @@ class _AutomatorDevice(object):
         device_file = self.server.jsonrpc.dumpWindowHierarchy(True, "dump.xml")
         if device_file is None or len(device_file) is 0:
             return None
-        p = adb_cmd("pull", device_file, filename)
+        p = adb.cmd("pull", device_file, filename)
         p.wait()
-        adb_cmd("shell", "rm", device_file)
+        adb.cmd("shell", "rm", device_file)
         return filename if p.returncode is 0 else None
 
     def screenshot(self, filename, scale=1.0, quality=100):
@@ -359,9 +373,9 @@ class _AutomatorDevice(object):
             "screenshot.png", scale, quality)
         if device_file is None or len(device_file) is 0:
             return None
-        p = adb_cmd("pull", device_file, filename)
+        p = adb.cmd("pull", device_file, filename)
         p.wait()
-        adb_cmd("shell", "rm", device_file)
+        adb.cmd("shell", "rm", device_file)
         return filename if p.returncode is 0 else None
 
     def freeze_rotation(self, freeze=True):
@@ -494,25 +508,21 @@ class _AutomatorDeviceObject(object):
     '''Represent a UiObject, on which user can perform actions, such as click, set text
     '''
 
-    __alias = {'description': "contentDescription", "class": "className"}
+    __alias = {'description': "contentDescription"}
 
     def __init__(self, jsonrpc, **kwargs):
         self.jsonrpc = jsonrpc
-        self.__selector = SelectorBuilder(**kwargs)
+        self.selector = SelectorBuilder(**kwargs)
         self.__actions = []
-
-    @property
-    def selector(self):
-        return self.__selector.build()
 
     def child_selector(self, **kwargs):
         '''set chileSelector.'''
-        self.__selector["childSelector"] = SelectorBuilder(**kwargs)
+        self.selector["childSelector"] = SelectorBuilder(**kwargs)
         return self
 
     def from_parent(self, **kwargs):
         '''set fromParent selector.'''
-        self.__selector["fromParent"] = SelectorBuilder(**kwargs)
+        self.selector["fromParent"] = SelectorBuilder(**kwargs)
         return self
 
     @property
@@ -603,11 +613,9 @@ class _AutomatorDeviceObject(object):
 
             def to(self, *args, **kwargs):
                 if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
-                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(
-                        obj.selector, x, y, steps)
+                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(obj.selector, x, y, steps)
                 else:
-                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(
-                        obj.selector, SelectorBuilder(**kwargs).build(), steps)
+                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, SelectorBuilder(**kwargs), steps)
                 return drag_to(*args, **kwargs)
         return Drag()
 
@@ -725,7 +733,7 @@ class _AutomatorDeviceObject(object):
             return obj.jsonrpc.scrollToEnd(obj.selector, vertical, max_swipes, steps)
 
         def __scroll_to(vertical, **kwargs):
-            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs).build(), vertical)
+            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs), vertical)
 
         @param_to_property(
             dimention=["vert", "vertically", "vertical",
@@ -762,13 +770,3 @@ class _AutomatorDeviceObject(object):
         return _wait
 
 device = _AutomatorDevice()
-
-if __name__ == "__main__":
-    device.server.stop()
-    device.ping()
-    device.screen.on()
-    if device(text="Clock").exists:
-        device(text="Clock").click()
-    device.press.back()
-    device(scrollable=True).scroll.horiz.forward()
-    device.screen.off()
