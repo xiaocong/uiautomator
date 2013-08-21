@@ -19,7 +19,7 @@ except ImportError:
 
 __version__ = "0.1.4"
 __author__ = "Xiaocong He"
-__all__ = ["device", "rect", "point", "adb"]
+__all__ = ["device", "rect", "point", "adb", "Selector"]
 
 
 def param_to_property(**props):
@@ -89,7 +89,7 @@ class _JsonRPCClient(object):
 JsonRPCClient = _JsonRPCClient
 
 
-class _SelectorBuilder(dict):
+class _Selector(dict):
 
     """The class is to build parameters for UiSelector passed to Android device.
     """
@@ -125,24 +125,24 @@ class _SelectorBuilder(dict):
     __mask = "mask"
 
     def __init__(self, **kwargs):
-        super(_SelectorBuilder, self).__setitem__(self.__mask, 0)
+        super(_Selector, self).__setitem__(self.__mask, 0)
         for k in kwargs:
             self[k] = kwargs[k]
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            super(_SelectorBuilder, self).__setitem__(k, v)
-            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
+            super(_Selector, self).__setitem__(k, v)
+            super(_Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
 
     def __delitem__(self, k):
         if k in self.__fields:
-            super(_SelectorBuilder, self).__delitem__(k)
-            super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
+            super(_Selector, self).__delitem__(k)
+            super(_Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
 
-SelectorBuilder = _SelectorBuilder
+Selector = _Selector
 
 
 def rect(top=0, left=0, bottom=100, right=100):
@@ -432,9 +432,55 @@ class _AutomatorDevice(object):
                 return obj.server.jsonrpc.openQuickSettings()
         return Target()
 
-    def watcher_triggered(self, name):
-        '''check if the registered watcher was triggered.'''
-        return self.server.jsonrpc.hasWatcherTriggered(name)
+    @property
+    def watchers(self):
+        obj = self
+        class Watchers(list):
+            def __init__(self):
+                for watcher in obj.server.jsonrpc.getWatchers():
+                    self.append(watcher)
+            @property
+            def triggered(self):
+                return obj.server.jsonrpc.hasAnyWatcherTriggered()
+            def remove(self, name=None):
+                if name:
+                    obj.server.jsonrpc.removeWatcher(name)
+                else:
+                    for name in self:
+                        obj.server.jsonrpc.removeWatcher(name)
+            def reset(self):
+                obj.server.jsonrpc.resetWatcherTriggers()
+                return self
+            def run(self):
+                obj.server.jsonrpc.runWatchers()
+                return self
+        return Watchers()
+
+    def watcher(self, name):
+        obj = self
+        class Watcher(object):
+            def __init__(self):
+                self.__selectors = []
+            @property
+            def triggered(self):
+                return obj.server.jsonrpc.hasWatcherTriggered(name)
+            def remove(self):
+                obj.server.jsonrpc.removeWatcher(name)
+            def when(self, **kwargs):
+                self.__selectors.append(Selector(**kwargs))
+                return self
+            def click(self, **kwargs):
+                obj.server.jsonrpc.registerClickUiObjectWatcher(name, self.__selectors, Selector(**kwargs))
+            @property
+            def press(self):
+                @param_to_property(key=["home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power"])
+                def _press(key="back"):
+                    if isinstance(key, str):
+                        key = [key]
+                    if isinstance(key, list):
+                        return obj.server.jsonrpc.registerPressKeyskWatcher(name, self.__selectors, key)
+                return _press
+        return Watcher()
 
     @property
     def press(self):
@@ -512,17 +558,17 @@ class _AutomatorDeviceObject(object):
 
     def __init__(self, jsonrpc, **kwargs):
         self.jsonrpc = jsonrpc
-        self.selector = SelectorBuilder(**kwargs)
+        self.selector = Selector(**kwargs)
         self.__actions = []
 
     def child_selector(self, **kwargs):
         '''set chileSelector.'''
-        self.selector["childSelector"] = SelectorBuilder(**kwargs)
+        self.selector["childSelector"] = Selector(**kwargs)
         return self
 
     def from_parent(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector["fromParent"] = SelectorBuilder(**kwargs)
+        self.selector["fromParent"] = Selector(**kwargs)
         return self
 
     @property
@@ -615,7 +661,7 @@ class _AutomatorDeviceObject(object):
                 if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
                     drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(obj.selector, x, y, steps)
                 else:
-                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, SelectorBuilder(**kwargs), steps)
+                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, Selector(**kwargs), steps)
                 return drag_to(*args, **kwargs)
         return Drag()
 
@@ -733,7 +779,7 @@ class _AutomatorDeviceObject(object):
             return obj.jsonrpc.scrollToEnd(obj.selector, vertical, max_swipes, steps)
 
         def __scroll_to(vertical, **kwargs):
-            return obj.jsonrpc.scrollTo(obj.selector, SelectorBuilder(**kwargs), vertical)
+            return obj.jsonrpc.scrollTo(obj.selector, Selector(**kwargs), vertical)
 
         @param_to_property(
             dimention=["vert", "vertically", "vertical",
