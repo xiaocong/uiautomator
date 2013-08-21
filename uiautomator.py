@@ -138,7 +138,7 @@ class _SelectorBuilder(dict):
 
     def __delitem__(self, k):
         if k in self.__fields:
-            super(_SelectorBuilder, self).__setitem__(k, self.__fields[k][1])
+            super(_SelectorBuilder, self).__delitem__(k)
             super(_SelectorBuilder, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
 
