@@ -19,7 +19,7 @@ except ImportError:
 
 __version__ = "0.1.3"
 __author__ = "Xiaocong He"
-__all__ = ["device", "rect", "point", "adb_cmd", "adb_devices", "adb_forward_list"]
+__all__ = ["device", "rect", "point", "adb"]
 
 
 def param_to_property(**props):
@@ -153,49 +153,53 @@ def point(x=0, y=0):
     return {"x": x, "y": y}
 
 
-_adb_cmd = None
+class _Adb(object):
+    def __init__(self):
+        self.__adb_cmd = None
 
-
-def get_adb():
-    global _adb_cmd
-    if _adb_cmd is None:
-        if "ANDROID_HOME" in os.environ:
-            _adb_cmd = os.environ["ANDROID_HOME"] + "/platform-tools/adb"
-            if not os.path.exists(_adb_cmd):
-                raise EnvironmentError(
-                    "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
-        else:
-            import distutils
-            _adb_cmd = distutils.spawn.find_executable("adb")
-            if _adb_cmd is not None:
-                _adb_cmd = os.path.realpath(cmd)
+    @property
+    def adb(self):
+        if self.__adb_cmd is None:
+            if "ANDROID_HOME" in os.environ:
+                adb_cmd = os.environ["ANDROID_HOME"] + "/platform-tools/adb"
+                if not os.path.exists(adb_cmd):
+                    raise EnvironmentError(
+                        "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
             else:
-                raise EnvironmentError("$ANDROID_HOME environment not set.")
-    return _adb_cmd
+                import distutils
+                adb_cmd = distutils.spawn.find_executable("adb")
+                if adb_cmd:
+                    adb_cmd = os.path.realpath(cmd)
+                else:
+                    raise EnvironmentError("$ANDROID_HOME environment not set.")
+            self.__adb_cmd = adb_cmd
+        return self.__adb_cmd
 
+    def cmd(self, *args):
+        '''adb command. return the subprocess.Popen object.'''
+        return subprocess.Popen(["%s %s" % (self.adb, " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-def adb_cmd(*args):
-    return subprocess.Popen(["%s %s" % (get_adb(), " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    @property
+    def devices(self):
+        '''get a dict of attached devices. key is the device serial, value is device name.'''
+        out = self.cmd("devices").communicate()[0].decode("utf-8")
+        match = "List of devices attached"
+        index = out.find(match)
+        if index < 0:
+            raise EnvironmentError("adb is not working.")
+        return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
 
+    def forward(self, local_port, device_port):
+        '''adb port forward. return 0 if success, else non-zero.'''
+        return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
 
-def adb_devices():
-    '''check if device is attached.'''
-    out = adb_cmd("devices").communicate()[0].decode("utf-8")
-    match = "List of devices attached"
-    index = out.find(match)
-    if index < 0:
-        raise EnvironmentError("adb is not working.")
-    return dict([s.split() for s in out[index + len(match):].strip().splitlines()])
+    @property
+    def forward_list(self):
+        lines = self.cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+        forwards = [line.strip().split() for line in lines]
+        return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
 
-
-def adb_forward(local_port, device_port):
-    return adb_cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).poll()
-
-
-def adb_forward_list():
-    lines = adb_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
-    forwards = [line.strip().split() for line in lines]
-    return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
+adb = _Adb()
 
 
 def server_port():
@@ -212,6 +216,7 @@ class _AutomatorServer(object):
     }
 
     def __init__(self):
+        self.__local_port = None
         self.__automator_process = None
 
     def __get__(self, instance, owner):
@@ -228,7 +233,7 @@ class _AutomatorServer(object):
                 with open(jarfile, 'wb') as f:
                     f.write(u.read())
             # push to device
-            adb_cmd("push", jarfile, "/data/local/tmp/").wait()
+            adb.cmd("push", jarfile, "/data/local/tmp/").wait()
         return self.__jar_files.keys()
 
     @property
@@ -239,8 +244,8 @@ class _AutomatorServer(object):
 
     @property
     def android_serial(self):
-        devices = adb_devices()
-        if len(devices) is 0:
+        devices = adb.devices
+        if not devices:
             raise EnvironmentError("Device not attached.")
         elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
             raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
@@ -250,21 +255,30 @@ class _AutomatorServer(object):
 
     @property
     def local_port(self):
-        serial, ports =  self.android_serial, adb_forward_list()
+        if self.__local_port:
+            return self.__local_port
+
+        serial, ports =  self.android_serial, adb.forward_list
         return ports[serial][0] if serial in ports else None
+
+    @local_port.setter
+    def local_port(self, port):
+        self.__local_port = port
 
     def start(self):
         files = self.__download_and_push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.__automator_process = adb_cmd(*cmd)
+        self.__automator_process = adb.cmd(*cmd)
         if not self.local_port:
-            local_port = 9008
-            ports = [v[0] for p, v in adb_forward_list().items()]
-            while local_port in ports:
-                local_port += 1
-            adb_forward(local_port, server_port())
+            ports = [v[0] for p, v in adb.forward_list.items()]
+            for local_port in range(9008, 9200):
+                if local_port not in ports and adb.forward(local_port, server_port()) == 0:
+                    self.local_port = local_port
+                    break
+            else:
+                raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
         while not self.alive and timeout > 0:
@@ -286,7 +300,7 @@ class _AutomatorServer(object):
 
     def stop(self):
         '''Stop the rpc server.'''
-        if self.__automator_process is not None and self.__automator_process.poll() is None:
+        if self.__automator_process and self.__automator_process.poll() is None:
             try:
                 urllib2.urlopen(self.stop_uri)
                 self.__automator_process.wait()
@@ -294,11 +308,11 @@ class _AutomatorServer(object):
                 self.__automator_process.kill()
             finally:
                 self.__automator_process = None
-        out = adb_cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
+        out = adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
         if out:
             index = out[0].split().index("PID")
             for line in out[1:]:
-                adb_cmd("shell", "kill", "-9", line.split()[index]).wait()
+                adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
 
     @property
     def stop_uri(self):
@@ -348,9 +362,9 @@ class _AutomatorDevice(object):
         device_file = self.server.jsonrpc.dumpWindowHierarchy(True, "dump.xml")
         if device_file is None or len(device_file) is 0:
             return None
-        p = adb_cmd("pull", device_file, filename)
+        p = adb.cmd("pull", device_file, filename)
         p.wait()
-        adb_cmd("shell", "rm", device_file)
+        adb.cmd("shell", "rm", device_file)
         return filename if p.returncode is 0 else None
 
     def screenshot(self, filename, scale=1.0, quality=100):
@@ -359,9 +373,9 @@ class _AutomatorDevice(object):
             "screenshot.png", scale, quality)
         if device_file is None or len(device_file) is 0:
             return None
-        p = adb_cmd("pull", device_file, filename)
+        p = adb.cmd("pull", device_file, filename)
         p.wait()
-        adb_cmd("shell", "rm", device_file)
+        adb.cmd("shell", "rm", device_file)
         return filename if p.returncode is 0 else None
 
     def freeze_rotation(self, freeze=True):
