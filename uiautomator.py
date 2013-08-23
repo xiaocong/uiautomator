@@ -22,27 +22,37 @@ __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
 
-def param_to_property(**props):
+def param_to_property(*props, **kwprops):
+    if props and kwprops:
+        raise SyntaxError("Can not set both props and kwprops at the same time.")
     class Wrapper(object):
 
         def __init__(self, func):
             self.func = func
             self.kwargs = {}
+            self.args = []
 
         def __getattribute__(self, attr):
             try:
                 return super(Wrapper, self).__getattribute__(attr)
             except AttributeError:
-                for prop_name, prop_values in props.items():
-                    if attr in prop_values and prop_name not in self.kwargs:
-                        self.kwargs[prop_name] = attr
-                        return self
+                if kwprops:
+                    for prop_name, prop_values in kwprops.items():
+                        if attr in prop_values and prop_name not in self.kwargs:
+                            self.kwargs[prop_name] = attr
+                            return self
+                elif attr in props:
+                    self.args.append(attr)
+                    return self
                 raise
 
         def __call__(self, *args, **kwargs):
-            kwargs.update(self.kwargs)
-            self.kwargs = {}
-            return self.func(*args, **kwargs)
+            if kwprops:
+                kwargs.update(self.kwargs)
+                self.kwargs = {}
+                return self.func(*args, **kwargs)
+            else:
+                return self.func(*(self.args + list(args)), **kwargs)
     return Wrapper
 
 
@@ -473,12 +483,9 @@ class _AutomatorDevice(object):
                 obj.server.jsonrpc.registerClickUiObjectWatcher(name, self.__selectors, Selector(**kwargs))
             @property
             def press(self):
-                @param_to_property(key=["home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power"])
-                def _press(key="back"):
-                    if isinstance(key, str):
-                        key = [key]
-                    if isinstance(key, list):
-                        return obj.server.jsonrpc.registerPressKeyskWatcher(name, self.__selectors, key)
+                @param_to_property("home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power")
+                def _press(*args):
+                    return obj.server.jsonrpc.registerPressKeyskWatcher(name, self.__selectors, args)
                 return _press
         return Watcher()
 
