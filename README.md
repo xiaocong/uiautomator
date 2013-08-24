@@ -27,15 +27,21 @@ from uiautomator import device as d
 
 ```python
 d.info
-#{u'displayRotation': 0,
-# u'displaySizeDpY': 640,
-# u'displaySizeDpX': 360,
-# u'currentPackageName': u'com.android.launcher',
-# u'productName': u'takju',
-# u'displayWidth': 720,
-# u'sdkInt': 18,
-# u'displayHeight': 1184,
-# u'naturalOrientation': True}
+```
+
+Below is a possible result:
+
+```
+{ u'displayRotation': 0,
+  u'displaySizeDpY': 640,
+  u'displaySizeDpX': 360,
+  u'currentPackageName': u'com.android.launcher',
+  u'productName': u'takju',
+  u'displayWidth': 720,
+  u'sdkInt': 18,
+  u'displayHeight': 1184,
+  u'naturalOrientation': True
+}
 ```
 
 ### Turn on/off screen
@@ -57,6 +63,8 @@ d.sleep()     # sleep the device, same as turning off the screen.
 ```python
 d.press.home() # press home key
 d.press.back() # press back key
+d.press("back")  # the normal way to press back key
+d.press(0x07, 0x02)  # press keycode 0x07('0') with META ALT(0x02) on
 ```
 
 Next keys are currently supported:
@@ -78,6 +86,8 @@ Next keys are currently supported:
 - `volumn_mute`
 - `camera`
 - `power`
+
+You can find all key code definitions at [Android KeyEvent](http://developer.android.com/reference/android/view/KeyEvent.html).
 
 ### Click the screen
 
@@ -149,6 +159,81 @@ d.wait.idle()   # wait for current window to idle
 d.wait.update() # wait until window update event occurs
 ```
 
+### Watcher
+
+You can register [watcher](http://developer.android.com/tools/help/uiautomator/UiWatcher.html) to perform some actions when a selector can not find a match.
+
+
+#### Register Watcher
+
+When a selector can not find a match, uiautomator will run all registered watchers.
+
+- Click target when conditions match
+
+```python
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").click(text="Force Close")
+# d.watcher(name) ## creates a new named watcher.
+#  .when(condition)  ## the UiSelector condition of the watcher.
+#  .click(target)  ## perform click action on the target UiSelector.
+```
+
+- Press key when conditions match
+
+```python
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").press.back.home()
+# Alternative way to define it as below
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").press("back", "home")
+# d.watcher(name) ## creates a new named watcher.
+#  .when(condition)  ## the UiSelector condition of the watcher.
+#  .press.<keyname>.<keyname>.....<keyname>.()  ## press keys one by one per the defined sequence.
+#  Alternavie way defining key sequence is press(<keybname>, <keyname>, ..., <keyname>)
+```
+
+#### Check if the named watcher triggered
+
+A watcher is triggered, which means the watcher was run and all its conditions matched.
+
+```python
+d.watcher("watcher_name").triggered  # true in case of the specified watcher triggered, else false
+```
+
+#### Remvoe named watcher
+
+```python
+d.watcher("watcher_name").remove()  # remove the watcher
+```
+
+#### List all watchers
+
+```python
+d.watchers  # It's a list of all registered wachers' names
+```
+
+#### Check if there is any watcher triggered
+
+```python
+d.watchers.triggered  #  true in case of any watcher triggered
+```
+
+#### Reset all triggered watchers
+
+```python
+d.watchers.reset()  # reset all triggered watchers, after that, d.watchers.triggered will be false.
+```
+
+#### Remvoe watchers
+
+```python
+d.watchers.remove()  # remove all registered watchers
+d.watchers.remove("watcher_name")  # remove the named watcher, same as d.watcher("watcher_name").remove()
+```
+
+#### Force to run all watchers
+
+```python
+d.watchers.run()  # force to run all registered watchers
+```
+
 ### Selector
 
 Selector is to identify specific ui object in current window.
@@ -198,28 +283,34 @@ d.exists(text="Settings") # alias of above property.
 
 ```python
 d(text="Settings").info
-#{u'contentDescription': u'',
-# u'checked': False,
-# u'scrollable': False,
-# u'text': u'Settings',
-# u'packageName': u'com.android.launcher',
-# u'selected': False,
-# u'enabled': True,
-# u'bounds': {u'top': 385,
-#             u'right': 360,
-#             u'bottom': 585,
-#             u'left': 200},
-# u'className': u'android.widget.TextView',
-# u'focused': False,
-# u'focusable': True,
-# u'clickable': True,
-# u'chileCount': 0,
-# u'longClickable': True,
-# u'visibleBounds': {u'top': 385,
-#                    u'right': 360,
-#                    u'bottom': 585,
-#                    u'left': 200},
-# u'checkable': False}
+```
+
+Below is a possible result:
+
+```
+{ u'contentDescription': u'',
+  u'checked': False,
+  u'scrollable': False,
+  u'text': u'Settings',
+  u'packageName': u'com.android.launcher',
+  u'selected': False,
+  u'enabled': True,
+  u'bounds': {u'top': 385,
+              u'right': 360,
+              u'bottom': 585,
+              u'left': 200},
+  u'className': u'android.widget.TextView',
+  u'focused': False,
+  u'focusable': True,
+  u'clickable': True,
+  u'chileCount': 0,
+  u'longClickable': True,
+  u'visibleBounds': {u'top': 385,
+                     u'right': 360,
+                     u'bottom': 585,
+                     u'left': 200},
+  u'checkable': False
+}
 ```
 
 #### Perform click on the specific ui object
