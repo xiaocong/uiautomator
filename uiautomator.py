@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -483,7 +483,7 @@ class _AutomatorDevice(object):
                 obj.server.jsonrpc.registerClickUiObjectWatcher(name, self.__selectors, Selector(**kwargs))
             @property
             def press(self):
-                @param_to_property("home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power")
+                @param_to_property("home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "volume_up", "volume_down", "volume_mute", "camera", "power")
                 def _press(*args):
                     return obj.server.jsonrpc.registerPressKeyskWatcher(name, self.__selectors, args)
                 return _press
@@ -494,15 +494,15 @@ class _AutomatorDevice(object):
         '''
         press key via name or key code. Supported key name includes:
         home, back, left, right, up, down, center, menu, search, enter,
-        delete(or del), recent(recent apps), voulmn_up, volumn_down,
-        volumn_mute, camera, power.
+        delete(or del), recent(recent apps), volume_up, volume_down,
+        volume_mute, camera, power.
         Usage:
         d.press.back()  # press back key
         d.press.menu()  # press home key
         d.press(89)     # press keycode
         '''
         obj = self
-        @param_to_property(key=["home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "voulmn_up", "volumn_down", "volumn_mute", "camera", "power"])
+        @param_to_property(key=["home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter", "delete", "del", "recent", "volume_up", "volume_down", "volume_mute", "camera", "power"])
         def _press(key, meta=None):
             if isinstance(key, int):
                 return obj.server.jsonrpc.pressKeyCode(key, meta) if meta else self.server.jsonrpc.pressKeyCode(key)

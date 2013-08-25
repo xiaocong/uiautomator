@@ -81,9 +81,9 @@ Next keys are currently supported:
 - `enter`
 - `delete`(or `del`)
 - `recent`(recent apps)
-- `voulmn_up`
-- `volumn_down`
-- `volumn_mute`
+- `volume_up`
+- `volume_down`
+- `volume_mute`
 - `camera`
 - `power`
 
