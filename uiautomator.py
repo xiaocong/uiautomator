@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -330,7 +330,7 @@ class _AutomatorServer(object):
 
     @property
     def rpc_uri(self):
-        return "http://localhost:%d/jsonrpc/device" % self.local_port
+        return "http://localhost:%d/jsonrpc/0" % self.local_port
 
 
 class _AutomatorDevice(object):
