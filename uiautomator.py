@@ -330,7 +330,7 @@ class _AutomatorServer(object):
 
     @property
     def rpc_uri(self):
-        return "http://localhost:%d/jsonrpc/device" % self.local_port
+        return "http://localhost:%d/jsonrpc/0" % self.local_port
 
 
 class _AutomatorDevice(object):
