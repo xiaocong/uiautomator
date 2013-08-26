@@ -56,24 +56,32 @@ Below is a possible result:
 ### Turn on/off screen
 
 ```python
-d.screen.on()  # Turn on screen
-d.screen.off() # Turn off screen
+# Turn on screen
+d.screen.on()
+# Turn off screen
+d.screen.off(
 ```
 
 Alternative method is:
 
 ```python
-d.wakeup()    # wakeup the device
-d.sleep()     # sleep the device, same as turning off the screen.
+# wakeup the device
+d.wakeup()
+# sleep the device, same as turning off the screen.
+d.sleep()
 ```
 
 ### Press hard/soft key
 
 ```python
-d.press.home() # press home key
-d.press.back() # press back key
-d.press("back")  # the normal way to press back key
-d.press(0x07, 0x02)  # press keycode 0x07('0') with META ALT(0x02) on
+# press home key
+d.press.home()
+# press back key
+d.press.back()
+# the normal way to press back key
+d.press("back")
+# press keycode 0x07('0') with META ALT(0x02) on
+d.press(0x07, 0x02)
 ```
 
 Next keys are currently supported:
@@ -101,21 +109,26 @@ You can find all key code definitions at [Android KeyEvent](http://developer.and
 ### Click the screen
 
 ```python
-d.click(x, y)   # click (x, y) on screen
+# click (x, y) on screen
+d.click(x, y)
 ```
 
 ### Swipe
 
 ```python
-d.swipe(sx, sy, ex, ey)  # swipe from (sx, sy) to (ex, ey)
-d.swipe(sx, sy, ex, ey, steps=10)  # swipe from (sx, sy) to (ex, ey) with 10 steps
+# swipe from (sx, sy) to (ex, ey)
+d.swipe(sx, sy, ex, ey)
+# swipe from (sx, sy) to (ex, ey) with 10 steps
+d.swipe(sx, sy, ex, ey, steps=10)
 ```
 
 ### Drag
 
 ```python
-d.drag(sx, sy, ex, ey)  # drag from (sx, sy) to (ex, ey)
-d.drag(sx, sy, ex, ey, steps=10)  # drag from (sx, sy) to (ex, ey) with 10 steps
+# drag from (sx, sy) to (ex, ey)
+d.drag(sx, sy, ex, ey)
+# drag from (sx, sy) to (ex, ey) with 10 steps
+d.drag(sx, sy, ex, ey, steps=10)
 ```
 
 ### Retrieve/Set Orientation
@@ -129,7 +142,8 @@ The possible orientation is:
 ```python
 # retrieve orientation, it may be "natural" or "left" or "right" or "upsidedown"
 orientation = d.orientation
-# set orientation and freeze rotation, notes: "upsidedown" can not be set until Android 4.3.
+# set orientation and freeze rotation.
+# notes: "upsidedown" can not be set until Android 4.3.
 d.orientation = "l" # or "left"
 d.orientation = "r" # or "right"
 d.orientation = "n" # or "natural"
@@ -138,34 +152,42 @@ d.orientation = "n" # or "natural"
 ### Freeze/Un-Freeze rotation
 
 ```python
-d.freeze_rotation()  # freeze rotation
-d.freeze_rotation(False)  # un-freeze rotation
+# freeze rotation
+d.freeze_rotation()
+# un-freeze rotation
+d.freeze_rotation(False)
 ```
 
 ### Take screenshot
 
 ```python
-d.screenshot("home.png")  # take screenshot and save to local file "home.png"
+# take screenshot and save to local file "home.png"
+d.screenshot("home.png")
 ```
 
 ### Dump Window Hierarchy
 
 ```python
-d.dump("hierarchy.xml")  # dump the widown hierarchy and save to local file "hierarchy.xml"
+# dump the widown hierarchy and save to local file "hierarchy.xml"
+d.dump("hierarchy.xml")
 ```
 
 ### Open notification or quick settings
 
 ```python
-d.open.notification()   # open notification
-d.open.quick_settings() # open quick settings
+# open notification
+d.open.notification()
+# open quick settings
+d.open.quick_settings()
 ```
 
 ### Wait for idle or window update
 
 ```python
-d.wait.idle()   # wait for current window to idle
-d.wait.update() # wait until window update event occurs
+# wait for current window to idle
+d.wait.idle()
+# wait until window update event occurs
+d.wait.update()
 ```
 
 ### Watcher
@@ -180,7 +202,8 @@ When a selector can not find a match, uiautomator will run all registered watche
 - Click target when conditions match
 
 ```python
-d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").click(text="Force Close")
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait") \
+                             .click(text="Force Close")
 # d.watcher(name) ## creates a new named watcher.
 #  .when(condition)  ## the UiSelector condition of the watcher.
 #  .click(target)  ## perform click action on the target UiSelector.
@@ -189,13 +212,15 @@ d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").click(text="For
 - Press key when conditions match
 
 ```python
-d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").press.back.home()
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait") \
+                             .press.back.home()
 # Alternative way to define it as below
-d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").press("back", "home")
+d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait") \
+                             .press("back", "home")
 # d.watcher(name) ## creates a new named watcher.
 #  .when(condition)  ## the UiSelector condition of the watcher.
-#  .press.<keyname>.<keyname>.....<keyname>.()  ## press keys one by one per the defined sequence.
-#  Alternavie way defining key sequence is press(<keybname>, <keyname>, ..., <keyname>)
+#  .press.<keyname>.....<keyname>.()  ## press keys one by one in sequence.
+#  Alternavie way defining key sequence is press(<keybname>, ..., <keyname>)
 ```
 
 #### Check if the named watcher triggered
@@ -203,44 +228,52 @@ d.watcher("AUTO_FC_WHEN_ANR").when(text="ANR").when(text="Wait").press("back", "
 A watcher is triggered, which means the watcher was run and all its conditions matched.
 
 ```python
-d.watcher("watcher_name").triggered  # true in case of the specified watcher triggered, else false
+d.watcher("watcher_name").triggered
+# true in case of the specified watcher triggered, else false
 ```
 
 #### Remvoe named watcher
 
 ```python
-d.watcher("watcher_name").remove()  # remove the watcher
+# remove the watcher
+d.watcher("watcher_name").remove()
 ```
 
 #### List all watchers
 
 ```python
-d.watchers  # It's a list of all registered wachers' names
+d.watchers
+# a list of all registered wachers' names
 ```
 
 #### Check if there is any watcher triggered
 
 ```python
-d.watchers.triggered  #  true in case of any watcher triggered
+d.watchers.triggered
+#  true in case of any watcher triggered
 ```
 
 #### Reset all triggered watchers
 
 ```python
-d.watchers.reset()  # reset all triggered watchers, after that, d.watchers.triggered will be false.
+# reset all triggered watchers, after that, d.watchers.triggered will be false.
+d.watchers.reset()
 ```
 
 #### Remvoe watchers
 
 ```python
-d.watchers.remove()  # remove all registered watchers
-d.watchers.remove("watcher_name")  # remove the named watcher, same as d.watcher("watcher_name").remove()
+# remove all registered watchers
+d.watchers.remove()
+# remove the named watcher, same as d.watcher("watcher_name").remove()
+d.watchers.remove("watcher_name")
 ```
 
 #### Force to run all watchers
 
 ```python
-d.watchers.run()  # force to run all registered watchers
+# force to run all registered watchers
+d.watchers.run()
 ```
 
 ### Selector
@@ -251,7 +284,7 @@ Selector is to identify specific ui object in current window.
 d(text='Clock', className='android.widget.TextView')
 ```
 
-Selector supports next parameters. Please refer to [UiSelector java doc](http://developer.android.com/tools/help/uiautomator/UiSelector.html) for detailed help.
+Selector supports below parameters. Refer to [UiSelector java doc](http://developer.android.com/tools/help/uiautomator/UiSelector.html) for detailed information.
 
 -   `text`
 -   `textContains`
@@ -325,18 +358,25 @@ Below is a possible result:
 #### Perform click on the specific ui object
 
 ```python
-d(text="Settings").click()  # click on the center of the specific ui object
-d(text="Settings").click.bottomright()  # click on the bottomright corner of the specific ui object
-d(text="Settings").click.topleft()  # click on the topleft corner of the specific ui object
-d(text="Settings").click.wait()  # click and wait until the new window update
+# click on the center of the specific ui object
+d(text="Settings").click()
+# click on the bottomright corner of the specific ui object
+d(text="Settings").click.bottomright()
+# click on the topleft corner of the specific ui object
+d(text="Settings").click.topleft()
+# click and wait until the new window update
+d(text="Settings").click.wait()
 ```
 
 #### Perform long click on the specific ui object
 
 ```python
-d(text="Settings").long_click()  # long click on the center of the specific ui object
-d(text="Settings").long_click.bottomright()  # long click on the bottomright corner of the specific ui object
-d(text="Settings").long_click.topleft()  # long click on the topleft corner of the specific ui object
+# long click on the center of the specific ui object
+d(text="Settings").long_click()
+# long click on the bottomright corner of the specific ui object
+d(text="Settings").long_click.bottomright()
+# long click on the topleft corner of the specific ui object
+d(text="Settings").long_click.topleft()
 ```
 
 #### Set/Clear text of editable field
@@ -349,8 +389,10 @@ d(text="Settings").set_text("My text...")  # set the text
 #### Drag the ui object to another point or ui object
 
 ```python
-d(text="Settings").drag.to(x, y, steps=100)  # drag the ui object to point (x, y)
-d(text="Settings").drag.to(text="Clock", steps=50)  # drag the ui object to another ui object(center)
+# drag the ui object to point (x, y)
+d(text="Settings").drag.to(x, y, steps=100)
+# drag the ui object to another ui object(center)
+d(text="Settings").drag.to(text="Clock", steps=50)
 ```
 
 #### Swipe from the center of the ui object to its edge
@@ -374,7 +416,8 @@ d(text="Settings").swipe.down()
 ```python
 from uiautomator import point
 
-d(text="Settings").gesture(point(sx1, sy1), point(sx2, sy2)).to(point(ex1, ey1), point(ex2, ey2))
+d(text="Settings").gesture(point(sx1, sy1), point(sx2, sy2)) \
+                  .to(point(ex1, ey1), point(ex2, ey2))
 ```
 
 #### Two point gesture on the specific ui object
@@ -384,8 +427,10 @@ Supports two gestures:
 - `Out`, from center to edge
 
 ```python
-d(text="Settings").pinch.In(percent=100, steps=10)  # from edge to center. here is "In" not "in"
-d(text="Settings").pinch.Out()  # from center to edge
+# from edge to center. here is "In" not "in"
+d(text="Settings").pinch.In(percent=100, steps=10)
+# from center to edge
+d(text="Settings").pinch.Out()
 ```
 
 #### Perform fling on the specific ui object(scrollable)
@@ -395,11 +440,16 @@ Possible properties:
 - `forward` or `backward` or `toBeginning` or `toEnd`
 
 ```python
-d(scrollable=True).fling()  # fling forward(default) vertically(default) 
-d(scrollable=True).fling.horiz.forward()  # fling forward horizentally
-d(scrollable=True).fling.vert.backward()  # fling backward vertically
-d(scrollable=True).fling.horiz.toBeginning(max_swipes=1000)  # fling to beginning horizentally
-d(scrollable=True).fling.toEnd()  # fling to end vertically
+# fling forward(default) vertically(default) 
+d(scrollable=True).fling()
+# fling forward horizentally
+d(scrollable=True).fling.horiz.forward()
+# fling backward vertically
+d(scrollable=True).fling.vert.backward()
+# fling to beginning horizentally
+d(scrollable=True).fling.horiz.toBeginning(max_swipes=1000)
+# fling to end vertically
+d(scrollable=True).fling.toEnd()
 ```
 
 #### Perform scroll on the specific ui object(scrollable)
@@ -409,26 +459,34 @@ Possible properties:
 - `forward` or `backward` or `toBeginning` or `toEnd`, or `to`
 
 ```python
-d(scrollable=True).scroll(stpes=10)  # scroll forward(default) vertically(default)
-d(scrollable=True).scroll.horiz.forward(steps=100)  # scroll forward horizentally
-d(scrollable=True).scroll.vert.backward()  # scroll backward vertically
-d(scrollable=True).scroll.horiz.toBeginning(steps=100, max_swipes=1000)  # scroll to beginning horizentally
-d(scrollable=True).scroll.toEnd()  # scroll to end vertically
-d(scrollable=True).scroll.to(text="Security")  # scroll forward vertically until specific ui object appears
+# scroll forward(default) vertically(default)
+d(scrollable=True).scroll(stpes=10)
+# scroll forward horizentally
+d(scrollable=True).scroll.horiz.forward(steps=100)
+# scroll backward vertically
+d(scrollable=True).scroll.vert.backward()
+# scroll to beginning horizentally
+d(scrollable=True).scroll.horiz.toBeginning(steps=100, max_swipes=1000)
+# scroll to end vertically
+d(scrollable=True).scroll.toEnd()
+# scroll forward vertically until specific ui object appears
+d(scrollable=True).scroll.to(text="Security")
 ```
 
 #### Wait until the specific ui object appears or gone
 
 ```python
-d(text="Settings").wait.exists(timeout=3000)  # wait until the ui object appears
-d(text="Settings").wait.gone(timeout=1000)  # wait until the ui object gone
+# wait until the ui object appears
+d(text="Settings").wait.exists(timeout=3000)
+# wait until the ui object gone
+d(text="Settings").wait.gone(timeout=1000)
 ```
 
 ---
 
 ## Issues
 
-Please submit ticket on [github issues](https://github.com/xiaocong/uiautomator/issues) in case of any issue.
+If you have any suggestions, bug reports or annoyances please report them to our issue tracker at [github issues](https://github.com/xiaocong/uiautomator/issues).
 
 ## Notes
 
