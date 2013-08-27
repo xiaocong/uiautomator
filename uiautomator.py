@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -530,7 +530,7 @@ class _AutomatorDevice(object):
 
         @param_to_property(action=["on", "off"])
         def _screen(action):
-            return obj.wakeup() if action is "on" else obj.sleep()
+            return obj.wakeup() if action == "on" else obj.sleep()
         return _screen
 
     @property
@@ -545,9 +545,9 @@ class _AutomatorDevice(object):
 
         @param_to_property(action=["idle", "update"])
         def _wait(action, timeout=1000, package_name=None):
-            if action is "idle":
+            if action == "idle":
                 return obj.server.jsonrpc.waitForIdle(timeout)
-            elif action is "update":
+            elif action == "update":
                 return obj.server.jsonrpc.waitForWindowUpdate(package_name, timeout)
         return _wait
 
@@ -751,13 +751,13 @@ class _AutomatorDeviceObject(object):
             action=["forward", "backward", "toBeginning", "toEnd"])
         def _fling(dimention="vert", action="forward", max_swipes=1000):
             vertical = dimention in ["vert", "vertically", "vertical"]
-            if action is "forward":
+            if action == "forward":
                 return obj.jsonrpc.flingForward(obj.selector, vertical)
-            elif action is "backward":
+            elif action == "backward":
                 return obj.jsonrpc.flingBackward(obj.selector, vertical)
-            elif action is "toBeginning":
+            elif action == "toBeginning":
                 return obj.jsonrpc.flingToBeginning(obj.selector, vertical, max_swipes)
-            elif action is "toEnd":
+            elif action == "toEnd":
                 return obj.jsonrpc.flingToEnd(obj.selector, vertical, max_swipes)
 
         return _fling
@@ -795,12 +795,12 @@ class _AutomatorDeviceObject(object):
         def _scroll(dimention="vert", action="forward", **kwargs):
             vertical = dimention in ["vert", "vertically", "vertical"]
             if action in ["forward", "backward"]:
-                return __scroll(vertical, action is "forward", **kwargs)
-            elif action is "toBeginning":
+                return __scroll(vertical, action == "forward", **kwargs)
+            elif action == "toBeginning":
                 return __scroll_to_beginning(vertical, **kwargs)
-            elif action is "toEnd":
+            elif action == "toEnd":
                 return __scroll_to_end(vertical, **kwargs)
-            elif action is "to":
+            elif action == "to":
                 return __scroll_to(vertical, **kwargs)
         return _scroll
 
@@ -816,9 +816,9 @@ class _AutomatorDeviceObject(object):
 
         @param_to_property(action=["exists", "gone"])
         def _wait(action, timeout=3000):
-            if action is "exists":
+            if action == "exists":
                 return obj.jsonrpc.waitForExists(obj.selector, timeout)
-            elif action is "gone":
+            elif action == "gone":
                 return obj.jsonrpc.waitUntilGone(obj.selector, timeout)
         return _wait
 
