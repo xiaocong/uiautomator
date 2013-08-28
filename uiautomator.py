@@ -32,19 +32,16 @@ def param_to_property(*props, **kwprops):
             self.kwargs = {}
             self.args = []
 
-        def __getattribute__(self, attr):
-            try:
-                return super(Wrapper, self).__getattribute__(attr)
-            except AttributeError:
-                if kwprops:
-                    for prop_name, prop_values in kwprops.items():
-                        if attr in prop_values and prop_name not in self.kwargs:
-                            self.kwargs[prop_name] = attr
-                            return self
-                elif attr in props:
-                    self.args.append(attr)
-                    return self
-                raise
+        def __getattr__(self, attr):
+            if kwprops:
+                for prop_name, prop_values in kwprops.items():
+                    if attr in prop_values and prop_name not in self.kwargs:
+                        self.kwargs[prop_name] = attr
+                        return self
+            elif attr in props:
+                self.args.append(attr)
+                return self
+            raise AttributeError("%s attribute not found!" % attr)
 
         def __call__(self, *args, **kwargs):
             if kwprops:
@@ -56,50 +53,49 @@ def param_to_property(*props, **kwprops):
     return Wrapper
 
 
-class _JsonRPCClient(object):
+class JsonRPCMethod(object):
+
+    def __init__(self, jsonrpc_client, method):
+        self.jsonrpc_client = jsonrpc_client
+        self.method = method
+
+    def __call__(self, *args, **kwargs):
+        if args and kwargs:
+            raise SyntaxError(
+                "Could not accept both *args and **kwargs as JSONRPC parameters.")
+        data = {"jsonrpc": "2.0", "method": self.method, "id": self.id()}
+        if args:
+            data["params"] = args
+        elif kwargs:
+            data["params"] = kwargs
+        req = urllib2.Request(self.jsonrpc_client.url,
+                              json.dumps(data).encode("utf-8"),
+                              {"Content-type": "application/json"})
+        result = urllib2.urlopen(req, timeout=self.jsonrpc_client.timeout)
+        if result is None or result.getcode() != 200:
+            raise Exception("Error reponse from jsonrpc server.")
+        jsonresult = json.loads(result.read().decode("utf-8"))
+        if "error" in jsonresult:
+            raise Exception("Error response. Error code: %d, Error message: %s" % (jsonresult["error"]["code"], jsonresult["error"]["message"]))
+        return jsonresult["result"]
+
+    def id(self):
+        m = hashlib.md5()
+        m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+        return m.hexdigest()
+
+
+class JsonRPCClient(object):
 
     def __init__(self, url, timeout=30):
         self.url = url
         self.timeout = timeout
 
-    def __getattribute__(self, method):
-        try:
-            return super(_JsonRPCClient, self).__getattribute__(method)
-        except AttributeError:
-            obj = self
-
-            class Method(object):
-
-                def __call__(self, *args, **kwargs):
-                    if args and kwargs:
-                        raise SyntaxError(
-                            "Could not accept both *args and **kwargs as JSONRPC parameters.")
-                    data = {"jsonrpc": "2.0", "method": method, "id": self.id()}
-                    if args:
-                        data["params"] = args
-                    elif kwargs:
-                        data["params"] = kwargs
-                    req = urllib2.Request(obj.url, json.dumps(data).encode("utf-8"), {"Content-type": "application/json"})
-                    result=urllib2.urlopen(req, timeout=obj.timeout)
-                    if result is None or result.getcode() != 200:
-                        raise Exception("Error reponse from jsonrpc server.")
-                    jsonresult = json.loads(result.read().decode("utf-8"))
-                    if "error" in jsonresult:
-                        raise Exception("Error response. Error code: %d, Error message: %s" %
-                                    (jsonresult["error"]["code"], jsonresult["error"]["message"]))
-                    return jsonresult["result"]
-
-                def id(self):
-                    m = hashlib.md5()
-                    m.update(("%s at %f" % (method, time.time())).encode("utf-8"))
-                    return m.hexdigest()
-
-            return Method()
-
-JsonRPCClient = _JsonRPCClient
+    def __getattr__(self, method):
+        return JsonRPCMethod(self, method)
 
 
-class _Selector(dict):
+class Selector(dict):
 
     """The class is to build parameters for UiSelector passed to Android device.
     """
@@ -135,24 +131,21 @@ class _Selector(dict):
     __mask = "mask"
 
     def __init__(self, **kwargs):
-        super(_Selector, self).__setitem__(self.__mask, 0)
+        super(Selector, self).__setitem__(self.__mask, 0)
         for k in kwargs:
             self[k] = kwargs[k]
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            super(_Selector, self).__setitem__(k, v)
-            super(_Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
+            super(Selector, self).__setitem__(k, v)
+            super(Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
 
     def __delitem__(self, k):
         if k in self.__fields:
-            super(_Selector, self).__delitem__(k)
-            super(_Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
-
-
-Selector = _Selector
+            super(Selector, self).__delitem__(k)
+            super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
 
 def rect(top=0, left=0, bottom=100, right=100):
@@ -163,7 +156,7 @@ def point(x=0, y=0):
     return {"x": x, "y": y}
 
 
-class _Adb(object):
+class Adb(object):
     def __init__(self):
         self.__adb_cmd = None
 
@@ -209,14 +202,14 @@ class _Adb(object):
         forwards = [line.strip().split() for line in lines]
         return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
 
-adb = _Adb()
+adb = Adb()
 
 
 def server_port():
     return int(os.environ["JSONRPC_PORT"]) if "JSONRPC_PORT" in os.environ else 9008
 
 
-class _AutomatorServer(object):
+class AutomatorServer(object):
 
     """start and quit rpc server on device.
     """
@@ -228,9 +221,7 @@ class _AutomatorServer(object):
     def __init__(self):
         self.__local_port = None
         self.__automator_process = None
-
-    def __get__(self, instance, owner):
-        return self
+        self.__jsonrpc_client = None
 
     def __download_and_push(self):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
@@ -250,7 +241,12 @@ class _AutomatorServer(object):
     def jsonrpc(self):
         if not self.alive:  # start server if not
             self.start()
-        return JsonRPCClient(self.rpc_uri)
+        return self.__jsonrpc()
+
+    def __jsonrpc(self):
+        if not self.__jsonrpc_client and self.local_port:
+            self.__jsonrpc_client = JsonRPCClient(self.rpc_uri)
+        return self.__jsonrpc_client
 
     @property
     def android_serial(self):
@@ -268,8 +264,7 @@ class _AutomatorServer(object):
         if self.__local_port:
             return self.__local_port
 
-        serial, ports =  self.android_serial, adb.forward_list
-        return ports[serial][0] if serial in ports else None
+        return adb.forward_list.get(self.android_serial, [None])[0]
 
     @local_port.setter
     def local_port(self, port):
@@ -299,7 +294,7 @@ class _AutomatorServer(object):
 
     def ping(self):
         try:
-            return JsonRPCClient(self.rpc_uri).ping() if self.local_port else None
+            return self.__jsonrpc().ping() if self.__jsonrpc() else None
         except:
             return None
 
@@ -333,10 +328,10 @@ class _AutomatorServer(object):
         return "http://localhost:%d/jsonrpc/0" % self.local_port
 
 
-class _AutomatorDevice(object):
+class AutomatorDevice(object):
 
     '''uiautomator wrapper of android device'''
-    server = _AutomatorServer()
+    server = AutomatorServer()
 
     _orientation = (  # device orientation
         (0, "natural", "n", 0),
@@ -345,11 +340,8 @@ class _AutomatorDevice(object):
         (3, "right", "r", 270)
     )
 
-    def __init__(self):
-        pass
-
     def __call__(self, **kwargs):
-        return _AutomatorDeviceObject(self.server.jsonrpc, **kwargs)
+        return AutomatorDeviceObject(self.server.jsonrpc, **kwargs)
 
     @property
     def info(self):
@@ -556,7 +548,7 @@ class _AutomatorDevice(object):
         return self(**kwargs).exists
 
 
-class _AutomatorDeviceObject(object):
+class AutomatorDeviceObject(object):
 
     '''Represent a UiObject, on which user can perform actions, such as click, set text
     '''
@@ -583,18 +575,15 @@ class _AutomatorDeviceObject(object):
         '''check if the object exists in current window.'''
         return self.jsonrpc.exist(self.selector)
 
-    def __getattribute__(self, attr):
+    def __getattr__(self, attr):
         '''alias of fields in info property.'''
-        try:
-            return super(_AutomatorDeviceObject, self).__getattribute__(attr)
-        except AttributeError:
-            info = self.info
-            if attr in info:
-                return info[attr]
-            elif attr in self.__alias:
-                return info[self.__alias[attr]]
-            else:
-                raise
+        info = self.info
+        if attr in info:
+            return info[attr]
+        elif attr in self.__alias:
+            return info[self.__alias[attr]]
+        else:
+            raise AttributeError("%s attribute not found!" % attr)
 
     @property
     def info(self):
@@ -822,4 +811,4 @@ class _AutomatorDeviceObject(object):
                 return obj.jsonrpc.waitUntilGone(obj.selector, timeout)
         return _wait
 
-device = _AutomatorDevice()
+device = AutomatorDevice()
