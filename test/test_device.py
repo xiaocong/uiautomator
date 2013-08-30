@@ -86,7 +86,7 @@ class TestDevice(unittest.TestCase):
             (1, "left", "l", 90),
             (2, "upsidedown", "u", 180),
             (3, "right", "r", 270)
-            ]
+        ]
         for values in orientations:
             for value in values:
                 self.device.server.jsonrpc.setOrientation = MagicMock()
@@ -158,7 +158,88 @@ class TestDevice(unittest.TestCase):
 
         self.device.server.jsonrpc.registerPressKeyskWatcher = MagicMock()
         self.device.watcher("watcher2").when(**condition1).when(**condition2).press.back.home.power("menu")
-        self.device.server.jsonrpc.registerPressKeyskWatcher.assert_called_once_with("watcher2", [Selector(**condition1), Selector(**condition2)],("back", "home", "power", "menu"))
+        self.device.server.jsonrpc.registerPressKeyskWatcher.assert_called_once_with(
+            "watcher2", [Selector(**condition1), Selector(**condition2)], ("back", "home", "power", "menu"))
 
+    def test_press(self):
+        key = ["home", "back", "left", "right", "up", "down", "center",
+               "menu", "search", "enter", "delete", "del", "recent",
+               "volume_up", "volume_down", "volume_mute", "camera", "power"]
+        self.device.server.jsonrpc.pressKey = MagicMock()
+        self.device.server.jsonrpc.pressKey.return_value = True
+        self.assertTrue(self.device.press.home())
+        self.device.server.jsonrpc.pressKey.return_value = False
+        self.assertFalse(self.device.press.back())
+        self.device.server.jsonrpc.pressKey.return_value = False
+        for k in key:
+            self.assertFalse(self.device.press(k))
+        self.assertEqual(self.device.server.jsonrpc.pressKey.call_args_list, [call("home"), call("back")] + [call(k) for k in key])
 
+    def test_wakeup(self):
+        self.device.server.jsonrpc.wakeUp = MagicMock()
+        self.device.wakeup()
+        self.device.server.jsonrpc.wakeUp.assert_called_once_with()
 
+        self.device.server.jsonrpc.wakeUp = MagicMock()
+        self.device.screen.on()
+        self.device.server.jsonrpc.wakeUp.assert_called_once_with()
+
+        self.device.server.jsonrpc.wakeUp = MagicMock()
+        self.device.screen("on")
+        self.device.server.jsonrpc.wakeUp.assert_called_once_with()
+
+    def test_sleep(self):
+        self.device.server.jsonrpc.sleep = MagicMock()
+        self.device.sleep()
+        self.device.server.jsonrpc.sleep.assert_called_once_with()
+
+        self.device.server.jsonrpc.sleep = MagicMock()
+        self.device.screen.off()
+        self.device.server.jsonrpc.sleep.assert_called_once_with()
+
+        self.device.server.jsonrpc.sleep = MagicMock()
+        self.device.screen("off")
+        self.device.server.jsonrpc.sleep.assert_called_once_with()
+
+    def test_wait_idle(self):
+        self.device.server.jsonrpc.waitForIdle = MagicMock()
+        self.device.server.jsonrpc.waitForIdle.return_value = True
+        self.assertTrue(self.device.wait.idle(timeout=10))
+        self.device.server.jsonrpc.waitForIdle.assert_called_once_with(10)
+
+        self.device.server.jsonrpc.waitForIdle = MagicMock()
+        self.device.server.jsonrpc.waitForIdle.return_value = False
+        self.assertFalse(self.device.wait("idle", timeout=10))
+        self.device.server.jsonrpc.waitForIdle.assert_called_once_with(10)
+
+    def test_wait_update(self):
+        self.device.server.jsonrpc.waitForWindowUpdate = MagicMock()
+        self.device.server.jsonrpc.waitForWindowUpdate.return_value = True
+        self.assertTrue(self.device.wait.update(timeout=10, package_name="android"))
+        self.device.server.jsonrpc.waitForWindowUpdate.assert_called_once_with("android", 10)
+
+        self.device.server.jsonrpc.waitForWindowUpdate = MagicMock()
+        self.device.server.jsonrpc.waitForWindowUpdate.return_value = False
+        self.assertFalse(self.device.wait("update", timeout=100, package_name="android"))
+        self.device.server.jsonrpc.waitForWindowUpdate.assert_called_once_with("android", 100)
+
+    def test_get_info_attr(self):
+        info = {"test_a": 1, "test_b": "string", "displayWidth": 720, "displayHeight": 1024}
+        self.device.server.jsonrpc.deviceInfo = MagicMock()
+        self.device.server.jsonrpc.deviceInfo.return_value = info
+        for k in info:
+            self.assertEqual(getattr(self.device, k), info[k])
+        self.assertEqual(self.device.width, info["displayWidth"])
+        self.assertEqual(self.device.height, info["displayHeight"])
+
+    def test_device_obj(self):
+        with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:
+            kwargs = {"text": "abc", "description": "description...", "clickable": True}
+            self.device(**kwargs)
+            AutomatorDeviceObject.assert_called_once_with(self.device, **kwargs)
+
+        with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:
+            AutomatorDeviceObject.return_value.exists = True
+            self.assertTrue(self.device().exists)
+            AutomatorDeviceObject.return_value.exists = False
+            self.assertFalse(self.device().exists)

@@ -201,7 +201,7 @@ class Adb(object):
     def forward_list(self):
         lines = self.cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
         forwards = [line.strip().split() for line in lines if line.strip()]
-        return {d[0]: [int(d[1][4:]), int(d[2][4:])] for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")}
+        return dict([(d[0], [int(d[1][4:]), int(d[2][4:])]) for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")])
 
 adb = Adb()
 
@@ -546,7 +546,7 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["on", "off"])
         def _screen(action):
-            return self.wakeup() if action == "on" else self.sleep()
+            self.wakeup() if action == "on" else self.sleep()
         return _screen
 
     @property
@@ -615,7 +615,7 @@ class AutomatorDeviceObject(object):
     def set_text(self, text):
         '''set the text field.'''
         if text in [None, ""]:
-            self.jsonrpc.clearTextField(self.selector)  # TODO no return
+            return self.jsonrpc.clearTextField(self.selector)  # TODO no return
         else:
             return self.jsonrpc.setText(self.selector, text)
 
