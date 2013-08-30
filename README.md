@@ -1,7 +1,9 @@
 uiautomator
 ===========
 
-[![pypi](https://badge.fury.io/py/uiautomator.png)](http://badge.fury.io/py/uiautomator)[![downloads](https://pypip.in/d/uiautomator/badge.png)](https://crate.io/packages/uiautomator/)
+[![build](https://api.travis-ci.org/xiaocong/uiautomator.png?branch=master)](https://travis-ci.org/xiaocong/uiautomator)
+[![pypi](https://badge.fury.io/py/uiautomator.png)](http://badge.fury.io/py/uiautomator)
+[![downloads](https://pypip.in/d/uiautomator/badge.png)](https://crate.io/packages/uiautomator/)
 
 This module is a Python wrapper of Android [uiautomator][] testing framework. It works on Android 4.1+ simply with Android device attached via adb, no need to install anything on Android device.
 
