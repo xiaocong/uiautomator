@@ -1,0 +1,10 @@
+anguage: python
+python:
+  - "2.7"
+  - "3.2"
+  - "3.3"
+  - "pypy"
+# command to install dependencies
+install:
+# command to run tests
+script: python setup.py nosetests sdist 
