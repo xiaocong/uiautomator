@@ -73,3 +73,15 @@ class TestAdb(unittest.TestCase):
             adb.cmd.assert_called_once_with("forward", "--list")
             adb.cmd.return_value.communicate.return_value = ("014E05DE0F02000E tcp:9008 tcp:9000\n387GDB7HDJ73G\ttcp:9009\ttcp:9000\r365GDB7HDJHDGF\ttcp:9009\ttcp:9008", "")
             self.assertEqual(adb.forward_list, {"014E05DE0F02000E": [9008, 9000], "387GDB7HDJ73G": [9009, 9000]})
+
+    def test_adb_cmd(self):
+        home_dir = '/android/home'
+        with patch.dict('os.environ', {'ANDROID_HOME': home_dir}):
+            with patch('os.path.exists') as exists:
+                exists.return_value = True
+                import subprocess
+                with patch("subprocess.Popen") as Popen:
+                    adb = Adb()
+                    args = ["a", "b", "c"]
+                    adb.cmd(*args)
+                    Popen.assert_called_once_with(["%s %s" % (adb.adb, " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

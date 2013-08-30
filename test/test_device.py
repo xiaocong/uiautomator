@@ -240,6 +240,6 @@ class TestDevice(unittest.TestCase):
 
         with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:
             AutomatorDeviceObject.return_value.exists = True
-            self.assertTrue(self.device().exists)
+            self.assertTrue(self.device.exists(clickable=True))
             AutomatorDeviceObject.return_value.exists = False
-            self.assertFalse(self.device().exists)
+            self.assertFalse(self.device.exists(text="..."))

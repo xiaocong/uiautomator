@@ -92,8 +92,9 @@ class TestAutomatorServer(unittest.TestCase):
                 adb.forward.return_value = 0
                 server.ping = MagicMock()
                 server.ping.return_value = None
-                with self.assertRaises(IOError):
-                    server.start()
+                with patch("time.sleep"):
+                    with self.assertRaises(IOError):
+                        server.start()
                 adb.forward.assert_called_once_with(9010, 9000)
 
     def test_auto_start(self):

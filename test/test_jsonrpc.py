@@ -38,6 +38,8 @@ class TestJsonRPCMethod_call(unittest.TestCase):
 
             return_mock.read.return_value = '{"result": "pong", "id": "%s"}' % self.id
             self.assertEqual("pong", self.method())
+            self.assertEqual("pong", self.method(1, 2, "str", {"a": 1}, ["1"]))
+            self.assertEqual("pong", self.method(a=1, b=2))
 
     def test_normal_call_error(self):
         with patch('urllib2.urlopen') as urlopen:

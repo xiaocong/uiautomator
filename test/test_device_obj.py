@@ -229,6 +229,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.fling.vertically.toBeginning(max_swipes=100))
         self.assertEqual(self.jsonrpc.flingToBeginning.call_args_list,
                          [call(self.obj.selector, False, max_swipes), call(self.obj.selector, False, max_swipes), call(self.obj.selector, True, max_swipes), call(self.obj.selector, True, 100)])
+
         self.jsonrpc.flingToEnd.return_value = True
         self.assertTrue(self.obj.fling.horiz.toEnd())
         self.assertTrue(self.obj.fling.horizentally.toEnd())
@@ -263,6 +264,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll.vertically.toBeginning(steps=20, max_swipes=100))
         self.assertEqual(self.jsonrpc.scrollToBeginning.call_args_list,
                          [call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, True, max_swipes, steps), call(self.obj.selector, True, 100, 20)])
+
         self.jsonrpc.scrollToEnd.return_value = True
         self.assertTrue(self.obj.scroll.horiz.toEnd())
         self.assertTrue(self.obj.scroll.horizentally.toEnd())
@@ -270,6 +272,15 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll.vertically.toEnd(steps=20, max_swipes=100))
         self.assertEqual(self.jsonrpc.scrollToEnd.call_args_list,
                          [call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, True, max_swipes, steps), call(self.obj.selector, True, 100, 20)])
+
+        info = {"text": "..."}
+        self.jsonrpc.scrollTo.return_value = True
+        self.assertTrue(self.obj.scroll.horiz.to(**info))
+        self.assertTrue(self.obj.scroll.horizentally.to(**info))
+        self.assertTrue(self.obj.scroll.vert.to(**info))
+        self.assertTrue(self.obj.scroll.vertically.to(**info))
+        self.assertEqual(self.jsonrpc.scrollTo.call_args_list,
+                         [call(self.obj.selector, Selector(**info), False), call(self.obj.selector, Selector(**info), False), call(self.obj.selector, Selector(**info), True), call(self.obj.selector, Selector(**info), True)])
 
     def test_wait(self):
         timeout = 3000
