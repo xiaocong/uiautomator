@@ -7,4 +7,4 @@ python:
 # command to install dependencies
 install:
 # command to run tests
-script: python setup.py nosetests sdist 
+script: python setup.py nosetests && python setup.py sdist
