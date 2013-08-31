@@ -695,14 +695,9 @@ class AutomatorDeviceObject(object):
                 return obj.jsonrpc.gesture(obj.selector,
                                            start1, start2,
                                            end1, end2, steps)
-        if len(args) == 0:
-            return Gesture()
-        elif 3 >= len(args) >= 2:
-            f = lambda end1, end2, steps=100: obj.jsonrpc.gesture(
-                obj.selector, start1, start2, end1, end2, steps)
-            return f(*args, **kwargs)
-        else:
-            raise SyntaxError("Invalid parameters.")
+        f = lambda end1, end2, steps=100: obj.jsonrpc.gesture(
+            obj.selector, start1, start2, end1, end2, steps)
+        return Gesture() if len(args) == 0 else f(*args, **kwargs)
 
     @property
     def pinch(self):

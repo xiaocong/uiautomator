@@ -93,6 +93,9 @@ class TestDevice(unittest.TestCase):
                 self.device.orientation = value
                 self.device.server.jsonrpc.setOrientation.assert_called_once_with(values[1])
 
+        with self.assertRaises(ValueError):
+            self.device.orientation = "invalid orientation"
+
     def test_last_traversed_text(self):
         self.device.server.jsonrpc.getLastTraversedText = MagicMock()
         self.device.server.jsonrpc.getLastTraversedText.return_value = "abcdef"
@@ -175,6 +178,11 @@ class TestDevice(unittest.TestCase):
             self.assertFalse(self.device.press(k))
         self.assertEqual(self.device.server.jsonrpc.pressKey.call_args_list, [call("home"), call("back")] + [call(k) for k in key])
 
+        self.device.server.jsonrpc.pressKeyCode.return_value = True
+        self.assertTrue(self.device.press(1))
+        self.assertTrue(self.device.press(1, 2))
+        self.assertEqual(self.device.server.jsonrpc.pressKeyCode.call_args_list, [call(1), call(1, 2)])
+
     def test_wakeup(self):
         self.device.server.jsonrpc.wakeUp = MagicMock()
         self.device.wakeup()
@@ -231,6 +239,8 @@ class TestDevice(unittest.TestCase):
             self.assertEqual(getattr(self.device, k), info[k])
         self.assertEqual(self.device.width, info["displayWidth"])
         self.assertEqual(self.device.height, info["displayHeight"])
+        with self.assertRaises(AttributeError):
+            self.device.not_exists
 
     def test_device_obj(self):
         with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:

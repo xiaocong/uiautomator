@@ -90,6 +90,11 @@ class TestDeviceObj(unittest.TestCase):
         self.assertEqual(self.obj.info, info)
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)
         self.assertEqual(self.obj.description, info["contentDescription"])
+        for k in info:
+            self.assertEqual(getattr(self.obj, k), info[k])
+
+        with self.assertRaises(AttributeError):
+            self.obj.not_exists
 
     def test_text(self):
         self.jsonrpc.clearTextField = MagicMock()

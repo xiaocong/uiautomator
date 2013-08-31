@@ -43,7 +43,8 @@ class TestAutomatorServer(unittest.TestCase):
             adb.forward_list = {serial: [9009, 9001], "xxx": [123, 9001]}
             self.assertEqual(server.local_port, 9009)
             adb.forward_list = {"aaa": [9009, 9001], "xxx": [123, 9001]}
-            self.assertEqual(server.local_port, 9009)  # the second time will retrieve the stored one.
+            # the second time will retrieve the stored one.
+            self.assertEqual(server.local_port, 9009)
 
             server = AutomatorServer()
             server.device_serial = MagicMock()
@@ -123,7 +124,8 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_stop(self):
         result = "USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME%ssystem    372   126   635596 104808 ffffffff 00000000 S uiautomator"
-        returns = [result % "\n\r", result % "\r\n", result % "\r", result % "\n"]
+        returns = [result % "\n\r", result %
+                   "\r\n", result % "\r", result % "\n"]
         for r in returns:
             with patch("uiautomator.adb") as adb:
                 adb.cmd.return_value.communicate.return_value = (r, "")
@@ -131,3 +133,23 @@ class TestAutomatorServer(unittest.TestCase):
                 server.stop()
                 self.assertEqual(adb.cmd.call_args_list,
                                  [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])
+
+    def test_start_ping(self):
+        serial = "76HDGKDN783HD6D"
+        with patch("uiautomator.adb") as adb:
+            with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
+                server = AutomatorServer()
+                server.device_serial = MagicMock()
+                server.device_serial.return_value = serial
+                adb.forward_list = {serial: [9008, 9008]}
+                JsonRPCClient.return_value.ping.return_value = "pong"
+                self.assertEqual(server.ping(), "pong")
+
+    def test_start_ping_none(self):
+        serial = "76HDGKDN783HD6D"
+        with patch("uiautomator.adb") as adb:
+            server = AutomatorServer()
+            server.device_serial = MagicMock()
+            server.device_serial.return_value = serial
+            adb.forward_list = {}
+            self.assertEqual(server.ping(), None)
