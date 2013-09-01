@@ -6,5 +6,11 @@ python:
   - "pypy"
 # command to install dependencies
 install:
+  - pip install coveralls
 # command to run tests
-script: python setup.py nosetests --with-coverage --cover-package=uiautomator && python setup.py sdist
+script:
+  - coverage run --source=uiautomator setup.py nosetests
+  - python setup.py sdist
+# after success
+after_success:
+  coveralls
