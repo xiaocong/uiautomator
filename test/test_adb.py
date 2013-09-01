@@ -32,6 +32,8 @@ class TestAdb(unittest.TestCase):
                 with patch("os.path.realpath") as realpath:
                     realpath.return_value = "/home/user/android/platform-tools/adb"
                     self.assertEqual(realpath.return_value, Adb().adb)
+                    find_executable.assert_called_once_with("adb")  # find_exectable should be called once
+                    realpath.assert_called_once_with(find_executable.return_value)
                     realpath.return_value = find_executable.return_value
                     self.assertEqual(find_executable.return_value, Adb().adb)
                 find_executable.return_value = None

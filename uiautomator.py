@@ -273,18 +273,15 @@ class AutomatorServer(object):
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
         self.__automator_process = adb.cmd(*cmd)
         if not self.local_port:
-            ports = [v[0] for p, v in adb.forward_list.items()]
-            for local_port in range(9008, 9200):
-                if local_port not in ports and adb.forward(local_port, server_port()) == 0:
-                    break
-            else:
+            ports = [v[0] for v in adb.forward_list.values()]
+            if not any(adb.forward(port, server_port()) == 0 for port in range(9008, 9200) if port not in ports):
                 raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
-        if timeout <= 0:
+        if not self.alive:
             raise IOError("RPC server not started!")
 
     def ping(self):
@@ -546,7 +543,7 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["on", "off"])
         def _screen(action):
-            self.wakeup() if action == "on" else self.sleep()
+            return self.wakeup() if action == "on" else self.sleep()
         return _screen
 
     @property
@@ -668,17 +665,13 @@ class AutomatorDeviceObject(object):
         d(text="Clock").drag.to(x=100, y=100)  # drag to point (x,y)
         d(text="Clock").drag.to(text="Remove") # drag to another object
         '''
-        obj = self
-
-        class Drag(object):
-
-            def to(self, *args, **kwargs):
-                if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
-                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(obj.selector, x, y, steps)
-                else:
-                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, Selector(**kwargs), steps)
-                return drag_to(*args, **kwargs)
-        return Drag()
+        def to(obj, *args, **kwargs):
+            if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
+                drag_to = lambda x, y, steps=100: self.jsonrpc.dragTo(self.selector, x, y, steps)
+            else:
+                drag_to = lambda steps=100, **kwargs: self.jsonrpc.dragTo(self.selector, Selector(**kwargs), steps)
+            return drag_to(*args, **kwargs)
+        return type("Drag", (object,), {"to": to})()
 
     def gesture(self, start1, start2, *args, **kwargs):
         '''
@@ -687,17 +680,11 @@ class AutomatorDeviceObject(object):
         d().gesture(startPoint1, startPoint2).to(endPoint1, endPoint2, steps)
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
-        obj = self
-
-        class Gesture(object):
-
-            def to(self, end1, end2, steps=100):
-                return obj.jsonrpc.gesture(obj.selector,
-                                           start1, start2,
-                                           end1, end2, steps)
-        f = lambda end1, end2, steps=100: obj.jsonrpc.gesture(
-            obj.selector, start1, start2, end1, end2, steps)
-        return Gesture() if len(args) == 0 else f(*args, **kwargs)
+        def to(obj_self, end1, end2, steps=100):
+            return self.jsonrpc.gesture(self.selector, start1, start2,
+                                        end1, end2, steps)
+        obj = type("Gesture", (object,), {"to": to})()
+        return obj if len(args) == 0 else to(None, *args, **kwargs)
 
     @property
     def pinch(self):
