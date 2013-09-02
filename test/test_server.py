@@ -122,40 +122,6 @@ class TestAutomatorServer(unittest.TestCase):
                     JsonRPCClient.assert_called_once_with(server.rpc_uri)
                     server.start.assert_called_once_with()
 
-    def test_stop(self):
-        result = "USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME%ssystem    372   126   635596 104808 ffffffff 00000000 S uiautomator"
-        returns = [result % "\n\r", result %
-                   "\r\n", result % "\r", result % "\n"]
-        for r in returns:
-            with patch("uiautomator.adb") as adb:
-                adb.cmd.return_value.communicate.return_value = (r, "")
-                server = AutomatorServer()
-                server.stop()
-                self.assertEqual(adb.cmd.call_args_list,
-                                 [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])
-
-    def test_stop_started_server(self):
-        serial = "76HDGKDN783HD6D"
-        with patch("uiautomator.adb") as adb:
-            with patch("uiautomator.server_port") as server_port:
-                server = AutomatorServer()
-                server.device_serial = MagicMock()
-                server.device_serial.return_value = serial
-                adb.forward_list = {serial: [9008, 9008]}
-                server_port.return_value = 9008
-                adb.forward.return_value = 0
-                server.ping = MagicMock()
-                server.ping.return_value = "pong"
-                adb.cmd.return_value.poll.return_value = None
-                adb.cmd.return_value.communicate.return_value = ("", "")
-                server.start()
-                with patch("urllib2.urlopen"):
-                    server.stop()
-                server.start()
-                with patch("urllib2.urlopen") as urlopen:
-                    urlopen.side_effect = IOError("error")
-                    server.stop()
-
     def test_start_ping(self):
         serial = "76HDGKDN783HD6D"
         with patch("uiautomator.adb") as adb:
@@ -175,3 +141,51 @@ class TestAutomatorServer(unittest.TestCase):
             server.device_serial.return_value = serial
             adb.forward_list = {}
             self.assertEqual(server.ping(), None)
+
+
+class TestAutomatorServer_Stop(unittest.TestCase):
+
+    def setUp(self):
+        try:
+            import urllib2
+            self.urlopen_patch = patch('urllib2.urlopen')
+        except:
+            self.urlopen_patch = patch('urllib.request.urlopen')
+        finally:
+            self.urlopen = self.urlopen_patch.start()
+
+    def tearDown(self):
+        self.urlopen_patch.stop()
+
+    @patch("uiautomator.adb")
+    def test_stop_started_server(self, adb):
+        serial = "76HDGKDN783HD6D"
+        server = AutomatorServer()
+        server.device_serial = MagicMock()
+        server.device_serial.return_value = serial
+        adb.forward_list = {serial: [9008, 9008]}
+        adb.forward.return_value = 0
+        server.uiautomator_process = process = MagicMock()
+        process.poll.return_value = None
+        server.stop()
+        process.wait.assert_called_once_with()
+
+        server.uiautomator_process = process
+        self.urlopen.side_effect = IOError("error")
+        server.stop()
+        process.kill.assert_called_once_with()
+
+    def test_stop(self):
+        results = [
+            b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\n\rsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator",
+            b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\r\nsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator",
+            b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\nsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator",
+            b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\rsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator"
+        ]
+        for r in results:
+            with patch("uiautomator.adb") as adb:
+                adb.cmd.return_value.communicate.return_value = (r, "")
+                server = AutomatorServer()
+                server.stop()
+                self.assertEqual(adb.cmd.call_args_list,
+                                 [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])

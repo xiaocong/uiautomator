@@ -9,6 +9,10 @@ import uiautomator
 class TestMisc(unittest.TestCase):
 
     def test_load(self):
+        try:
+            from imp import reload
+        except:
+            pass
         reload(uiautomator)
         self.assertIsNotNone(uiautomator.device)
         self.assertIsNotNone(uiautomator.rect)

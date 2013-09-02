@@ -221,7 +221,7 @@ class AutomatorServer(object):
 
     def __init__(self):
         self.__local_port = None
-        self.__automator_process = None
+        self.uiautomator_process = None
         self.__jsonrpc_client = None
 
     def __download_and_push(self):
@@ -271,7 +271,7 @@ class AutomatorServer(object):
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.__automator_process = adb.cmd(*cmd)
+        self.uiautomator_process = adb.cmd(*cmd)
         if not self.local_port:
             ports = [v[0] for v in adb.forward_list.values()]
             if not any(adb.forward(port, server_port()) == 0 for port in range(9008, 9200) if port not in ports):
@@ -297,14 +297,14 @@ class AutomatorServer(object):
 
     def stop(self):
         '''Stop the rpc server.'''
-        if self.__automator_process and self.__automator_process.poll() is None:
+        if self.uiautomator_process and self.uiautomator_process.poll() is None:
             try:
                 urllib2.urlopen(self.stop_uri)
-                self.__automator_process.wait()
+                self.uiautomator_process.wait()
             except:
-                self.__automator_process.kill()
+                self.uiautomator_process.kill()
             finally:
-                self.__automator_process = None
+                self.uiautomator_process = None
         out = adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
         if out:
             index = out[0].split().index("PID")

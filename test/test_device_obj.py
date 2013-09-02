@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, call, patch
+from mock import MagicMock, call
 from uiautomator import AutomatorDeviceObject, Selector
 
 
@@ -63,29 +63,29 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)
 
     def test_info_attr(self):
-        info = {u'contentDescription': u'',
-                u'checked': False,
-                u'scrollable': False,
-                u'text': u'',
-                u'packageName': u'android',
-                u'selected': False,
-                u'enabled': True,
-                u'bounds': {u'top': 0,
-                            u'left': 0,
-                            u'right': 720,
-                            u'bottom': 1184},
-                u'className':
-                u'android.widget.FrameLayout',
-                u'focusable': False,
-                u'focused': False,
-                u'clickable': False,
-                u'checkable': False,
-                u'chileCount': 2,
-                u'longClickable': False,
-                u'visibleBounds': {u'top': 0,
-                                   u'left': 0,
-                                   u'right': 720,
-                                   u'bottom': 1184}}
+        info = {'contentDescription': '',
+                'checked': False,
+                'scrollable': False,
+                'text': '',
+                'packageName': 'android',
+                'selected': False,
+                'enabled': True,
+                'bounds': {'top': 0,
+                            'left': 0,
+                            'right': 720,
+                            'bottom': 1184},
+                'className':
+                'android.widget.FrameLayout',
+                'focusable': False,
+                'focused': False,
+                'clickable': False,
+                'checkable': False,
+                'chileCount': 2,
+                'longClickable': False,
+                'visibleBounds': {'top': 0,
+                                   'left': 0,
+                                   'right': 720,
+                                   'bottom': 1184}}
         self.jsonrpc.objInfo.return_value = info
         self.assertEqual(self.obj.info, info)
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)

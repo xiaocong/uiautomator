@@ -45,16 +45,16 @@ class TestAdb(unittest.TestCase):
     def test_devices(self):
         adb = Adb()
         adb.cmd = MagicMock()
-        adb.cmd.return_value.communicate.return_value = ("List of devices attached \r\n014E05DE0F02000E    device\r\n489328DKFL7DF    device", "")
+        adb.cmd.return_value.communicate.return_value = (b"List of devices attached \r\n014E05DE0F02000E    device\r\n489328DKFL7DF    device", b"")
         self.assertEqual(adb.devices, {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
         adb.cmd.assert_called_once_with("devices")
-        adb.cmd.return_value.communicate.return_value = ("List of devices attached \n\r014E05DE0F02000E    device\n\r489328DKFL7DF    device", "")
+        adb.cmd.return_value.communicate.return_value = (b"List of devices attached \n\r014E05DE0F02000E    device\n\r489328DKFL7DF    device", b"")
         self.assertEqual(adb.devices, {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
-        adb.cmd.return_value.communicate.return_value = ("List of devices attached \r014E05DE0F02000E    device\r489328DKFL7DF    device", "")
+        adb.cmd.return_value.communicate.return_value = (b"List of devices attached \r014E05DE0F02000E    device\r489328DKFL7DF    device", b"")
         self.assertEqual(adb.devices, {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
-        adb.cmd.return_value.communicate.return_value = ("List of devices attached \n014E05DE0F02000E    device\n489328DKFL7DF    device", "")
+        adb.cmd.return_value.communicate.return_value = (b"List of devices attached \n014E05DE0F02000E    device\n489328DKFL7DF    device", b"")
         self.assertEqual(adb.devices, {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
-        adb.cmd.return_value.communicate.return_value = ("not match", "")
+        adb.cmd.return_value.communicate.return_value = (b"not match", "")
         with self.assertRaises(EnvironmentError):
             adb.devices
 
@@ -70,10 +70,10 @@ class TestAdb(unittest.TestCase):
         with patch("uiautomator.server_port") as server_port:
             server_port.return_value = 9000
             adb.cmd = MagicMock()
-            adb.cmd.return_value.communicate.return_value = ("014E05DE0F02000E tcp:9008 tcp:9000\r\n387GDB7HDJ73G\ttcp:9009\ttcp:9000\n\r365GDB7HDJHDGF\ttcp:9009\ttcp:9008", "")
+            adb.cmd.return_value.communicate.return_value = (b"014E05DE0F02000E tcp:9008 tcp:9000\r\n387GDB7HDJ73G\ttcp:9009\ttcp:9000\n\r365GDB7HDJHDGF\ttcp:9009\ttcp:9008", b"")
             self.assertEqual(adb.forward_list, {"014E05DE0F02000E": [9008, 9000], "387GDB7HDJ73G": [9009, 9000]})
             adb.cmd.assert_called_once_with("forward", "--list")
-            adb.cmd.return_value.communicate.return_value = ("014E05DE0F02000E tcp:9008 tcp:9000\n387GDB7HDJ73G\ttcp:9009\ttcp:9000\r365GDB7HDJHDGF\ttcp:9009\ttcp:9008", "")
+            adb.cmd.return_value.communicate.return_value = (b"014E05DE0F02000E tcp:9008 tcp:9000\n387GDB7HDJ73G\ttcp:9009\ttcp:9000\r365GDB7HDJHDGF\ttcp:9009\ttcp:9008", b"")
             self.assertEqual(adb.forward_list, {"014E05DE0F02000E": [9008, 9000], "387GDB7HDJ73G": [9009, 9000]})
 
     def test_adb_cmd(self):
