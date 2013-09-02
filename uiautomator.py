@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -165,7 +165,8 @@ class Adb(object):
     def adb(self):
         if self.__adb_cmd is None:
             if "ANDROID_HOME" in os.environ:
-                adb_cmd = os.path.join(os.environ["ANDROID_HOME"], "platform-tools", "adb")
+                filename = "adb.exe" if os.name == 'nt' else "adb"
+                adb_cmd = os.path.join(os.environ["ANDROID_HOME"], "platform-tools", filename)
                 if not os.path.exists(adb_cmd):
                     raise EnvironmentError(
                         "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])

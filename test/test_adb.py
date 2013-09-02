@@ -11,15 +11,22 @@ class TestAdb(unittest.TestCase):
 
     def test_adb_from_env(self):
         home_dir = '/android/home'
-        adb_path = os.path.join(home_dir, "platform-tools", "adb")
         with patch.dict('os.environ', {'ANDROID_HOME': home_dir}):
             with patch('os.path.exists') as exists:
                 exists.return_value = True
+
+                os.name = "posix"  # linux
                 adb_obj = Adb()
+                adb_path = os.path.join(home_dir, "platform-tools", "adb")
                 self.assertEqual(adb_obj.adb, adb_path)
                 exists.assert_called_once_with(adb_path)
                 self.assertEqual(adb_obj.adb, adb_path)
                 exists.assert_called_once_with(adb_path) # the second call will return the __adb_cmd directly
+
+                os.name = "nt"  # linux
+                adb_obj = Adb()
+                adb_path = os.path.join(home_dir, "platform-tools", "adb.exe")
+                self.assertEqual(adb_obj.adb, adb_path)
 
                 exists.return_value = False
                 with self.assertRaises(EnvironmentError):
