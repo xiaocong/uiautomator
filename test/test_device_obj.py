@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, call, patch
+from mock import MagicMock, call
 from uiautomator import AutomatorDeviceObject, Selector
 
 
@@ -63,33 +63,38 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)
 
     def test_info_attr(self):
-        info = {u'contentDescription': u'',
-                u'checked': False,
-                u'scrollable': False,
-                u'text': u'',
-                u'packageName': u'android',
-                u'selected': False,
-                u'enabled': True,
-                u'bounds': {u'top': 0,
-                            u'left': 0,
-                            u'right': 720,
-                            u'bottom': 1184},
-                u'className':
-                u'android.widget.FrameLayout',
-                u'focusable': False,
-                u'focused': False,
-                u'clickable': False,
-                u'checkable': False,
-                u'chileCount': 2,
-                u'longClickable': False,
-                u'visibleBounds': {u'top': 0,
-                                   u'left': 0,
-                                   u'right': 720,
-                                   u'bottom': 1184}}
+        info = {'contentDescription': '',
+                'checked': False,
+                'scrollable': False,
+                'text': '',
+                'packageName': 'android',
+                'selected': False,
+                'enabled': True,
+                'bounds': {'top': 0,
+                            'left': 0,
+                            'right': 720,
+                            'bottom': 1184},
+                'className':
+                'android.widget.FrameLayout',
+                'focusable': False,
+                'focused': False,
+                'clickable': False,
+                'checkable': False,
+                'chileCount': 2,
+                'longClickable': False,
+                'visibleBounds': {'top': 0,
+                                   'left': 0,
+                                   'right': 720,
+                                   'bottom': 1184}}
         self.jsonrpc.objInfo.return_value = info
         self.assertEqual(self.obj.info, info)
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)
         self.assertEqual(self.obj.description, info["contentDescription"])
+        for k in info:
+            self.assertEqual(getattr(self.obj, k), info[k])
+
+        with self.assertRaises(AttributeError):
+            self.obj.not_exists
 
     def test_text(self):
         self.jsonrpc.clearTextField = MagicMock()
@@ -229,6 +234,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.fling.vertically.toBeginning(max_swipes=100))
         self.assertEqual(self.jsonrpc.flingToBeginning.call_args_list,
                          [call(self.obj.selector, False, max_swipes), call(self.obj.selector, False, max_swipes), call(self.obj.selector, True, max_swipes), call(self.obj.selector, True, 100)])
+
         self.jsonrpc.flingToEnd.return_value = True
         self.assertTrue(self.obj.fling.horiz.toEnd())
         self.assertTrue(self.obj.fling.horizentally.toEnd())
@@ -263,6 +269,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll.vertically.toBeginning(steps=20, max_swipes=100))
         self.assertEqual(self.jsonrpc.scrollToBeginning.call_args_list,
                          [call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, True, max_swipes, steps), call(self.obj.selector, True, 100, 20)])
+
         self.jsonrpc.scrollToEnd.return_value = True
         self.assertTrue(self.obj.scroll.horiz.toEnd())
         self.assertTrue(self.obj.scroll.horizentally.toEnd())
@@ -270,6 +277,15 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll.vertically.toEnd(steps=20, max_swipes=100))
         self.assertEqual(self.jsonrpc.scrollToEnd.call_args_list,
                          [call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, False, max_swipes, steps), call(self.obj.selector, True, max_swipes, steps), call(self.obj.selector, True, 100, 20)])
+
+        info = {"text": "..."}
+        self.jsonrpc.scrollTo.return_value = True
+        self.assertTrue(self.obj.scroll.horiz.to(**info))
+        self.assertTrue(self.obj.scroll.horizentally.to(**info))
+        self.assertTrue(self.obj.scroll.vert.to(**info))
+        self.assertTrue(self.obj.scroll.vertically.to(**info))
+        self.assertEqual(self.jsonrpc.scrollTo.call_args_list,
+                         [call(self.obj.selector, Selector(**info), False), call(self.obj.selector, Selector(**info), False), call(self.obj.selector, Selector(**info), True), call(self.obj.selector, Selector(**info), True)])
 
     def test_wait(self):
         timeout = 3000

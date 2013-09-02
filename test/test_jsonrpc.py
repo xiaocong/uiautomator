@@ -26,34 +26,44 @@ class TestJsonRPCMethod_call(unittest.TestCase):
         self.method = JsonRPCMethod(self.url, self.method_name, self.timeout)
         self.method.id = MagicMock()
         self.method.id.return_value = self.id
+        try:
+            import urllib2
+            self.urlopen_patch = patch('urllib2.urlopen')
+        except:
+            self.urlopen_patch = patch('urllib.request.urlopen')
+        finally:
+            self.urlopen = self.urlopen_patch.start()
+
+    def tearDown(self):
+        self.urlopen_patch.stop()
 
     def test_normal_call(self):
-        with patch('urllib2.urlopen') as urlopen:
-            return_mock = urlopen.return_value
-            return_mock.getcode.return_value = 200
+        return_mock = self.urlopen.return_value
+        return_mock.getcode.return_value = 200
 
-            return_mock.read.return_value = '{"result": "pong", "error": null, "id": "%s"}' % self.id
-            self.assertEqual("pong", self.method())
-            self.method.id.assert_called_once_with()
+        return_mock.read.return_value = b'{"result": "pong", "error": null, "id": "DKNCJDLDJJ"}'
+        self.assertEqual("pong", self.method())
+        self.method.id.assert_called_once_with()
 
-            return_mock.read.return_value = '{"result": "pong", "id": "%s"}' % self.id
-            self.assertEqual("pong", self.method())
+        return_mock.read.return_value = b'{"result": "pong", "id": "JDLSFJLILJEMNC"}'
+        self.assertEqual("pong", self.method())
+        self.assertEqual("pong", self.method(1, 2, "str", {"a": 1}, ["1"]))
+        self.assertEqual("pong", self.method(a=1, b=2))
 
     def test_normal_call_error(self):
-        with patch('urllib2.urlopen') as urlopen:
-            return_mock = urlopen.return_value
+        return_mock = self.urlopen.return_value
 
-            return_mock.getcode.return_value = 500
-            self.assertRaises(Exception, self.method)
+        return_mock.getcode.return_value = 500
+        self.assertRaises(Exception, self.method)
 
-            return_mock.getcode.return_value = 200
-            return_mock.read.return_value = '{"result": "pong", "error": 300238, "id": "%s"}' % self.id
-            self.assertRaises(Exception, self.method)
+        return_mock.getcode.return_value = 200
+        return_mock.read.return_value = '{"result": "pong", "error": 300238, "id": "%s"}' % self.id
+        self.assertRaises(Exception, self.method)
 
-            return_mock.getcode.return_value = 200
-            return_mock.read.return_value = '{"result": "pong", "error": null, "id": "%s"}' % self.id
-            with self.assertRaises(SyntaxError):
-                self.method(1, 2, kwarg1="")
+        return_mock.getcode.return_value = 200
+        return_mock.read.return_value = '{"result": "pong", "error": null, "id": "%s"}' % self.id
+        with self.assertRaises(SyntaxError):
+            self.method(1, 2, kwarg1="")
 
 
 class TestJsonRPCClient(unittest.TestCase):

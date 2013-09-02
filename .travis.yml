@@ -1,4 +1,4 @@
-anguage: python
+language: python
 python:
   - "2.7"
   - "3.2"
@@ -6,5 +6,13 @@ python:
   - "pypy"
 # command to install dependencies
 install:
+  - "pip install -r requirements.txt --use-mirrors"
+  - "pip install coveralls --use-mirrors"
 # command to run tests
-script: python setup.py nosetests sdist 
+script:
+#  - "python setup.py nosetests --cover-package=uiautomator --with-coverage --cover-erase"
+  - "coverage run --source=uiautomator setup.py nosetests"
+  - "python setup.py sdist"
+# after success
+after_success:
+  coveralls

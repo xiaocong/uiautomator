@@ -2,6 +2,7 @@ uiautomator
 ===========
 
 [![build](https://api.travis-ci.org/xiaocong/uiautomator.png?branch=master)](https://travis-ci.org/xiaocong/uiautomator)
+[![Coverage Status](https://coveralls.io/repos/xiaocong/uiautomator/badge.png?branch=master)](https://coveralls.io/r/xiaocong/uiautomator?branch=master)
 [![pypi](https://badge.fury.io/py/uiautomator.png)](http://badge.fury.io/py/uiautomator)
 [![downloads](https://pypip.in/d/uiautomator/badge.png)](https://crate.io/packages/uiautomator/)
 

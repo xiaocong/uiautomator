@@ -7,3 +7,6 @@ uiautomator.egg-info
 .classpath
 .project
 *.pyc
+*.egg
+.tox
+.coverage

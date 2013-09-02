@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -165,7 +165,8 @@ class Adb(object):
     def adb(self):
         if self.__adb_cmd is None:
             if "ANDROID_HOME" in os.environ:
-                adb_cmd = os.path.join(os.environ["ANDROID_HOME"], "platform-tools", "adb")
+                filename = "adb.exe" if os.name == 'nt' else "adb"
+                adb_cmd = os.path.join(os.environ["ANDROID_HOME"], "platform-tools", filename)
                 if not os.path.exists(adb_cmd):
                     raise EnvironmentError(
                         "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
@@ -221,10 +222,10 @@ class AutomatorServer(object):
 
     def __init__(self):
         self.__local_port = None
-        self.__automator_process = None
+        self.uiautomator_process = None
         self.__jsonrpc_client = None
 
-    def __download_and_push(self):
+    def download_and_push(self):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
         if not os.path.exists(lib_path):
             os.mkdir(lib_path)
@@ -236,7 +237,7 @@ class AutomatorServer(object):
                     f.write(u.read())
             # push to device
             adb.cmd("push", jarfile, "/data/local/tmp/").wait()
-        return self.__jar_files.keys()
+        return list(self.__jar_files.keys())
 
     @property
     def jsonrpc(self):
@@ -267,24 +268,21 @@ class AutomatorServer(object):
         return self.__local_port
 
     def start(self):
-        files = self.__download_and_push()
+        files = self.download_and_push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.__automator_process = adb.cmd(*cmd)
+        self.uiautomator_process = adb.cmd(*cmd)
         if not self.local_port:
-            ports = [v[0] for p, v in adb.forward_list.items()]
-            for local_port in range(9008, 9200):
-                if local_port not in ports and adb.forward(local_port, server_port()) == 0:
-                    break
-            else:
+            ports = [v[0] for v in adb.forward_list.values()]
+            if not any(adb.forward(port, server_port()) == 0 for port in range(9008, 9200) if port not in ports):
                 raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
-        if timeout <= 0:
+        if not self.alive:
             raise IOError("RPC server not started!")
 
     def ping(self):
@@ -300,14 +298,14 @@ class AutomatorServer(object):
 
     def stop(self):
         '''Stop the rpc server.'''
-        if self.__automator_process and self.__automator_process.poll() is None:
+        if self.uiautomator_process and self.uiautomator_process.poll() is None:
             try:
                 urllib2.urlopen(self.stop_uri)
-                self.__automator_process.wait()
+                self.uiautomator_process.wait()
             except:
-                self.__automator_process.kill()
+                self.uiautomator_process.kill()
             finally:
-                self.__automator_process = None
+                self.uiautomator_process = None
         out = adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
         if out:
             index = out[0].split().index("PID")
@@ -546,7 +544,7 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["on", "off"])
         def _screen(action):
-            self.wakeup() if action == "on" else self.sleep()
+            return self.wakeup() if action == "on" else self.sleep()
         return _screen
 
     @property
@@ -668,17 +666,13 @@ class AutomatorDeviceObject(object):
         d(text="Clock").drag.to(x=100, y=100)  # drag to point (x,y)
         d(text="Clock").drag.to(text="Remove") # drag to another object
         '''
-        obj = self
-
-        class Drag(object):
-
-            def to(self, *args, **kwargs):
-                if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
-                    drag_to = lambda x, y, steps=100: obj.jsonrpc.dragTo(obj.selector, x, y, steps)
-                else:
-                    drag_to = lambda steps=100, **kwargs: obj.jsonrpc.dragTo(obj.selector, Selector(**kwargs), steps)
-                return drag_to(*args, **kwargs)
-        return Drag()
+        def to(obj, *args, **kwargs):
+            if len(args) >= 2 or "x" in kwargs or "y" in kwargs:
+                drag_to = lambda x, y, steps=100: self.jsonrpc.dragTo(self.selector, x, y, steps)
+            else:
+                drag_to = lambda steps=100, **kwargs: self.jsonrpc.dragTo(self.selector, Selector(**kwargs), steps)
+            return drag_to(*args, **kwargs)
+        return type("Drag", (object,), {"to": to})()
 
     def gesture(self, start1, start2, *args, **kwargs):
         '''
@@ -687,22 +681,11 @@ class AutomatorDeviceObject(object):
         d().gesture(startPoint1, startPoint2).to(endPoint1, endPoint2, steps)
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
-        obj = self
-
-        class Gesture(object):
-
-            def to(self, end1, end2, steps=100):
-                return obj.jsonrpc.gesture(obj.selector,
-                                           start1, start2,
-                                           end1, end2, steps)
-        if len(args) == 0:
-            return Gesture()
-        elif 3 >= len(args) >= 2:
-            f = lambda end1, end2, steps=100: obj.jsonrpc.gesture(
-                obj.selector, start1, start2, end1, end2, steps)
-            return f(*args, **kwargs)
-        else:
-            raise SyntaxError("Invalid parameters.")
+        def to(obj_self, end1, end2, steps=100):
+            return self.jsonrpc.gesture(self.selector, start1, start2,
+                                        end1, end2, steps)
+        obj = type("Gesture", (object,), {"to": to})()
+        return obj if len(args) == 0 else to(None, *args, **kwargs)
 
     @property
     def pinch(self):
