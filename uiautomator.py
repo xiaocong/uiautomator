@@ -224,7 +224,7 @@ class AutomatorServer(object):
         self.uiautomator_process = None
         self.__jsonrpc_client = None
 
-    def __download_and_push(self):
+    def download_and_push(self):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
         if not os.path.exists(lib_path):
             os.mkdir(lib_path)
@@ -236,7 +236,7 @@ class AutomatorServer(object):
                     f.write(u.read())
             # push to device
             adb.cmd("push", jarfile, "/data/local/tmp/").wait()
-        return self.__jar_files.keys()
+        return list(self.__jar_files.keys())
 
     @property
     def jsonrpc(self):
@@ -267,7 +267,7 @@ class AutomatorServer(object):
         return self.__local_port
 
     def start(self):
-        files = self.__download_and_push()
+        files = self.download_and_push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))

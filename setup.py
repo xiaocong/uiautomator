@@ -21,7 +21,7 @@ setup(name='uiautomator',
       install_requires=requires,
       py_modules=['uiautomator'],
       scripts=['uiautomator.py'],
-      setup_requires=['nose>=1.0', 'mock>=1.0.1', 'coverage>=3.6', 'setuptools-lint>=0.1'],
+      setup_requires=['nose>=1.0', 'mock>=1.0.1', 'coverage>=3.6'],
       license='MIT',
       platforms='any',
       classifiers=(

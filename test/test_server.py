@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, Mock, patch, call
+from mock import MagicMock, Mock, patch, call, mock_open
 import os
 from uiautomator import AutomatorServer
 
@@ -54,26 +54,30 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_start_success(self):
         serial = "76HDGKDN783HD6D"
+        server = AutomatorServer()
+        server.download_and_push = MagicMock()
+        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.device_serial = MagicMock()
+        server.device_serial.return_value = serial
+        server.ping = MagicMock()
+        server.ping.return_value = "pong"
         with patch("uiautomator.adb") as adb:
             with patch("uiautomator.server_port") as server_port:
-                server = AutomatorServer()
-                server.device_serial = MagicMock()
-                server.device_serial.return_value = serial
                 adb.forward_list = {"a": [9008, 9008], "b": [9009, 9008]}
                 server_port.return_value = 9000
                 adb.forward.return_value = 0
-                server.ping = MagicMock()
-                server.ping.return_value = "pong"
                 server.start()
                 adb.forward.assert_called_once_with(9010, 9000)
 
     def test_start_forward_error(self):
         serial = "76HDGKDN783HD6D"
+        server = AutomatorServer()
+        server.download_and_push = MagicMock()
+        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.device_serial = MagicMock()
+        server.device_serial.return_value = serial
         with patch("uiautomator.adb") as adb:
             with patch("uiautomator.server_port") as server_port:
-                server = AutomatorServer()
-                server.device_serial = MagicMock()
-                server.device_serial.return_value = serial
                 adb.forward_list = {"a": [9008, 9008], "b": [9009, 9008]}
                 server_port.return_value = 9000
                 adb.forward.return_value = 1
@@ -83,16 +87,18 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_start_error(self):
         serial = "76HDGKDN783HD6D"
+        server = AutomatorServer()
+        server.download_and_push = MagicMock()
+        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.device_serial = MagicMock()
+        server.device_serial.return_value = serial
+        server.ping = MagicMock()
+        server.ping.return_value = None
         with patch("uiautomator.adb") as adb:
             with patch("uiautomator.server_port") as server_port:
-                server = AutomatorServer()
-                server.device_serial = MagicMock()
-                server.device_serial.return_value = serial
                 adb.forward_list = {"a": [9008, 9008], "b": [9009, 9008]}
                 server_port.return_value = 9000
                 adb.forward.return_value = 0
-                server.ping = MagicMock()
-                server.ping.return_value = None
                 with patch("time.sleep"):
                     with self.assertRaises(IOError):
                         server.start()
@@ -156,6 +162,28 @@ class TestAutomatorServer_Stop(unittest.TestCase):
 
     def tearDown(self):
         self.urlopen_patch.stop()
+
+    @patch("uiautomator.adb")
+    def test_download_and_push(self, adb):
+        jars = ["bundle.jar", "uiautomator-stub.jar"]
+        with patch("os.path.exists") as exists:
+            server = AutomatorServer()
+            exists.return_value = True
+            self.assertEqual(set(server.download_and_push()), set(jars))
+            for args in adb.cmd.call_args_list:
+                self.assertEqual(args[0][0], "push")
+                self.assertEqual(args[0][2], "/data/local/tmp/")
+
+    @patch("uiautomator.adb")
+    def test_download_and_push_download(self, adb):
+        jars = ["bundle.jar", "uiautomator-stub.jar"]
+        with patch("os.path.exists") as exists, \
+             patch("os.mkdir") as mkdir, \
+             patch("%s.open" % open.__class__.__module__, mock_open(), create=True) as m_open:
+            server = AutomatorServer()
+            exists.return_value = False
+            self.assertEqual(set(server.download_and_push()), set(jars))
+            self.assertEqual(len(m_open.call_args_list), len(jars))
 
     @patch("uiautomator.adb")
     def test_stop_started_server(self, adb):
