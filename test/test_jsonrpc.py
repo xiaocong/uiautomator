@@ -54,14 +54,17 @@ class TestJsonRPCMethod_call(unittest.TestCase):
         return_mock = self.urlopen.return_value
 
         return_mock.getcode.return_value = 500
-        self.assertRaises(Exception, self.method)
+        with self.assertRaises(Exception):
+            self.method()
 
         return_mock.getcode.return_value = 200
-        return_mock.read.return_value = '{"result": "pong", "error": 300238, "id": "%s"}' % self.id
-        self.assertRaises(Exception, self.method)
+        return_mock.read.return_value = b'{"result": "pong", "error": {"code": -513937, "message": "error message."}, "id": "fGasV62G"}'
+        with self.assertRaises(Exception):
+            self.method()
+        return_mock.read.assert_called_with()
 
         return_mock.getcode.return_value = 200
-        return_mock.read.return_value = '{"result": "pong", "error": null, "id": "%s"}' % self.id
+        return_mock.read.return_value = b'{"result": null, "error": null, "id": "fGasV62G"}'
         with self.assertRaises(SyntaxError):
             self.method(1, 2, kwarg1="")
 

@@ -192,12 +192,15 @@ class Adb(object):
         return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def device_serial(self):
-        devices = adb.devices()
+        devices = self.devices()
         if not devices:
             raise EnvironmentError("Device not attached.")
-        elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
+        if "ANDROID_SERIAL" in os.environ:
+            if os.environ["ANDROID_SERIAL"] not in devices:
+                raise EnvironmentError("Device %s not connected!" % os.environ["ANDROID_SERIAL"])
+        elif len(devices) > 1:
             raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
-        if "ANDROID_SERIAL" not in os.environ:
+        else:
             os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
         return os.environ["ANDROID_SERIAL"]
 

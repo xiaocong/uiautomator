@@ -102,3 +102,28 @@ class TestAdb(unittest.TestCase):
         args = ["a", "b", "c"]
         adb.cmd(*args)
         adb.raw_cmd.assert_called_once_with("-s", adb.device_serial(), *args)
+
+    def test_device_serial(self):
+        adb = Adb()
+        adb.devices = MagicMock()
+        adb.devices.return_value = {"ABCDEF123456": "device"}
+        with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
+            self.assertEqual(adb.device_serial(), "ABCDEF123456")
+        adb.devices.return_value = {"ABCDEF123456": "device", "123456ABCDEF": "device"}
+        with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
+            self.assertEqual(adb.device_serial(), "ABCDEF123456")
+        adb.devices.return_value = {"ABCDEF123456": "device", "123456ABCDEF": "device"}
+        with patch.dict('os.environ', {'ANDROID_SERIAL': "HIJKLMN098765"}):
+            with self.assertRaises(EnvironmentError):
+                adb.device_serial()
+        adb.devices.return_value = {"ABCDEF123456": "device", "123456ABCDEF": "device"}
+        with patch.dict('os.environ', {}, clear=True):
+            with self.assertRaises(EnvironmentError):
+                adb.device_serial()
+        adb.devices.return_value = {"ABCDEF123456": "device"}
+        with patch.dict('os.environ', {}, clear=True):
+            self.assertEqual(adb.device_serial(), "ABCDEF123456")
+
+        adb.devices.return_value = {}
+        with self.assertRaises(EnvironmentError):
+            adb.device_serial()
