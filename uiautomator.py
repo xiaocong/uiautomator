@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -161,7 +161,6 @@ class Adb(object):
     def __init__(self):
         self.__adb_cmd = None
 
-    @property
     def adb(self):
         if self.__adb_cmd is None:
             if "ANDROID_HOME" in os.environ:
@@ -181,13 +180,30 @@ class Adb(object):
         return self.__adb_cmd
 
     def cmd(self, *args):
-        '''adb command. return the subprocess.Popen object.'''
-        return subprocess.Popen(["%s %s" % (self.adb, " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        '''adb command, add -s serial by default. return the subprocess.Popen object.'''
+        cmd_line = ["-s", self.device_serial()] + list(args)
+        return self.raw_cmd(*cmd_line)
 
-    @property
+    def raw_cmd(self, *args):
+        '''adb command. return the subprocess.Popen object.'''
+        cmd_line = [self.adb()] + list(args)
+        if os.name != "nt":
+            cmd_line = [" ".join(cmd_line)]
+        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def device_serial(self):
+        devices = adb.devices()
+        if not devices:
+            raise EnvironmentError("Device not attached.")
+        elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
+            raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
+        if "ANDROID_SERIAL" not in os.environ:
+            os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
+        return os.environ["ANDROID_SERIAL"]
+
     def devices(self):
         '''get a dict of attached devices. key is the device serial, value is device name.'''
-        out = self.cmd("devices").communicate()[0].decode("utf-8")
+        out = self.raw_cmd("devices").communicate()[0].decode("utf-8")
         match = "List of devices attached"
         index = out.find(match)
         if index < 0:
@@ -198,17 +214,7 @@ class Adb(object):
         '''adb port forward. return 0 if success, else non-zero.'''
         return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
 
-    @property
-    def forward_list(self):
-        lines = self.cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
-        forwards = [line.strip().split() for line in lines if line.strip()]
-        return dict([(d[0], [int(d[1][4:]), int(d[2][4:])]) for d in forwards if d[2] == "tcp:%d" % server_port() and d[1].startswith("tcp:")])
-
 adb = Adb()
-
-
-def server_port():
-    return int(os.environ["JSONRPC_PORT"]) if "JSONRPC_PORT" in os.environ else 9008
 
 
 class AutomatorServer(object):
@@ -222,6 +228,7 @@ class AutomatorServer(object):
 
     def __init__(self):
         self.__local_port = None
+        self.__device_port = None
         self.uiautomator_process = None
         self.__jsonrpc_client = None
 
@@ -246,26 +253,17 @@ class AutomatorServer(object):
         return self.__jsonrpc()
 
     def __jsonrpc(self):
-        if not self.__jsonrpc_client and self.local_port:
+        if not self.__jsonrpc_client:
             self.__jsonrpc_client = JsonRPCClient(self.rpc_uri)
         return self.__jsonrpc_client
 
-    def device_serial(self):
-        devices = adb.devices
-        if not devices:
-            raise EnvironmentError("Device not attached.")
-        elif len(devices) > 1 and ("ANDROID_SERIAL" not in os.environ or os.environ["ANDROID_SERIAL"] not in devices):
-            raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
-        if "ANDROID_SERIAL" not in os.environ:
-            os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
-        return os.environ["ANDROID_SERIAL"]
-
     @property
     def local_port(self):
-        if not self.__local_port:
-            self.__local_port = adb.forward_list.get(self.device_serial(), [None])[0]
+        return int(os.environ["LOCAL_PORT"]) if "LOCAL_PORT" in os.environ else 9008
 
-        return self.__local_port
+    @property
+    def device_port(self):
+        return int(os.environ["DEVICE_PORT"]) if "DEVICE_PORT" in os.environ else 9008
 
     def start(self):
         files = self.download_and_push()
@@ -273,10 +271,8 @@ class AutomatorServer(object):
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
         self.uiautomator_process = adb.cmd(*cmd)
-        if not self.local_port:
-            ports = [v[0] for v in adb.forward_list.values()]
-            if not any(adb.forward(port, server_port()) == 0 for port in range(9008, 9200) if port not in ports):
-                raise IOError("Error during start jsonrpc server!")
+        if adb.forward(self.local_port, self.device_port) != 0:
+            raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
         while not self.alive and timeout > 0:
@@ -287,7 +283,7 @@ class AutomatorServer(object):
 
     def ping(self):
         try:
-            return self.__jsonrpc().ping() if self.__jsonrpc() else None
+            return self.__jsonrpc().ping()
         except:
             return None
 
