@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import patch
 import uiautomator
 
 
@@ -30,10 +29,3 @@ class TestMisc(unittest.TestCase):
         for i in range(10):
             x, y = random.randint(0, 1024), random.randint(0, 720)
             self.assertEqual(uiautomator.point(x, y), {"x": x, "y": y})
-
-    def test_server_port(self):
-        for port in [8000, 9000, 1234, 4321]:
-            with patch.dict("os.environ", {"JSONRPC_PORT": str(port)}):
-                self.assertEqual(uiautomator.server_port(), port)
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(uiautomator.server_port(), 9008)
