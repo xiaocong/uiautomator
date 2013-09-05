@@ -230,8 +230,6 @@ class AutomatorServer(object):
     }
 
     def __init__(self):
-        self.__local_port = None
-        self.__device_port = None
         self.uiautomator_process = None
         self.__jsonrpc_client = None
 
@@ -239,15 +237,16 @@ class AutomatorServer(object):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
         if not os.path.exists(lib_path):
             os.mkdir(lib_path)
-        for jar in self.__jar_files:
-            jarfile = os.path.join(lib_path, jar)
-            if not os.path.exists(jarfile):  # not exist, then download it
-                u = urllib2.urlopen(self.__jar_files[jar])
-                with open(jarfile, 'wb') as f:
-                    f.write(u.read())
-            # push to device
-            adb.cmd("push", jarfile, "/data/local/tmp/").wait()
+        for jar, url in self.__jar_files.items():
+            filename = os.path.join(lib_path, jar)
+            if not os.path.exists(filename):
+                self.download(filename, url)
+            adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
+
+    def download(self, filename, url):
+        with open(filename, 'wb') as file:
+            file.write(urllib2.urlopen(url).read())
 
     @property
     def jsonrpc(self):
