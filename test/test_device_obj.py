@@ -33,15 +33,15 @@ class TestDeviceObj(unittest.TestCase):
 
     def test_child_selector(self):
         kwargs = {"text": "child text", "className": "android"}
+        self.obj.selector.child = MagicMock()
         self.obj.child_selector(**kwargs)
-        self.assertEqual(self.obj.selector["childSelector"],
-                         Selector(**kwargs))
+        self.obj.selector.child.assert_called_once_with(**kwargs)
 
     def test_from_parent(self):
         kwargs = {"text": "parent text", "className": "android"}
+        self.obj.selector.sibling = MagicMock()
         self.obj.from_parent(**kwargs)
-        self.assertEqual(self.obj.selector["fromParent"],
-                         Selector(**kwargs))
+        self.obj.selector.sibling.assert_called_once_with(**kwargs)
 
     def test_exists(self):
         self.jsonrpc.exist = MagicMock()

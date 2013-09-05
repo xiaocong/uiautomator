@@ -32,15 +32,15 @@ class TestSelector(unittest.TestCase):
         "resourceId": (0x200000, None),  # MASK_RESOURCEID,
         "resourceIdMatches": (0x400000, None),  # MASK_RESOURCEIDMATCHES,
         "index": (0x800000, 0),  # MASK_INDEX,
-        "instance": (0x01000000, 0),  # MASK_INSTANCE,
-        "fromParent": (0x02000000, None),  # MASK_FROMPARENT,
-        "childSelector": (0x04000000, None)  # MASK_CHILDSELECTOR
+        "instance": (0x01000000, 0)  # MASK_INSTANCE,
     }
     mask = "mask"
 
     def test_init(self):
         sel = Selector()
         self.assertEqual(sel[self.mask], 0)
+        self.assertEqual(sel["childOrSibling"], [])
+        self.assertEqual(sel["childOrSiblingSelector"], [])
 
     def test_add(self):
         for k, v in self.fields.items():
@@ -75,3 +75,13 @@ class TestSelector(unittest.TestCase):
     def test_error(self):
         with self.assertRaises(ReferenceError):
             Selector(text1="")
+
+    def test_child_and_sibling(self):
+        sel = Selector()
+        sel.child(text="...")
+        self.assertEqual(sel["childOrSibling"], ["child"])
+        self.assertEqual(sel["childOrSiblingSelector"], [Selector(text="...")])
+
+        sel.sibling(text="---")
+        self.assertEqual(sel["childOrSibling"], ["child", "sibling"])
+        self.assertEqual(sel["childOrSiblingSelector"], [Selector(text="..."), Selector(text="---")])

@@ -124,14 +124,14 @@ class Selector(dict):
         "resourceId": (0x200000, None),  # MASK_RESOURCEID,
         "resourceIdMatches": (0x400000, None),  # MASK_RESOURCEIDMATCHES,
         "index": (0x800000, 0),  # MASK_INDEX,
-        "instance": (0x01000000, 0),  # MASK_INSTANCE,
-        "fromParent": (0x02000000, None),  # MASK_FROMPARENT,
-        "childSelector": (0x04000000, None)  # MASK_CHILDSELECTOR
+        "instance": (0x01000000, 0)  # MASK_INSTANCE,
     }
-    __mask = "mask"
+    __mask, __childOrSibling, __childOrSiblingSelector = "mask", "childOrSibling", "childOrSiblingSelector"
 
     def __init__(self, **kwargs):
         super(Selector, self).__setitem__(self.__mask, 0)
+        super(Selector, self).__setitem__(self.__childOrSibling, [])
+        super(Selector, self).__setitem__(self.__childOrSiblingSelector, [])
         for k in kwargs:
             self[k] = kwargs[k]
 
@@ -146,6 +146,16 @@ class Selector(dict):
         if k in self.__fields:
             super(Selector, self).__delitem__(k)
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
+
+    def child(self, **kwargs):
+        self[self.__childOrSibling].append("child")
+        self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+
+    def sibling(self, **kwargs):
+        self[self.__childOrSibling].append("sibling")
+        self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+
+    child_selector, from_parent = child, sibling
 
 
 def rect(top=0, left=0, bottom=100, right=100):
@@ -578,15 +588,17 @@ class AutomatorDeviceObject(object):
         self.selector = Selector(**kwargs)
         self.__actions = []
 
-    def child_selector(self, **kwargs):
+    def child(self, **kwargs):
         '''set chileSelector.'''
-        self.selector["childSelector"] = Selector(**kwargs)
+        self.selector.child(**kwargs)
         return self
 
-    def from_parent(self, **kwargs):
+    def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector["fromParent"] = Selector(**kwargs)
+        self.selector.sibling(**kwargs)
         return self
+
+    child_selector, from_parent = child, sibling
 
     @property
     def exists(self):
