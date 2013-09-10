@@ -388,7 +388,11 @@ d(className="android.widget.ListView", resourceId="android:id/list") \
 
 # allow scroll search to get the child
 d(className="android.widget.ListView", resourceId="android:id/list") \
- .child_by_text("Bluetooth", allow_scroll_search=True, className="android.widget.LinearLayout")
+ .child_by_text(
+    "Bluetooth",
+    allow_scroll_search=True,
+    className="android.widget.LinearLayout"
+  )
 ```
 
 - `child_by_description` is to find child which or which's grandchild contains
@@ -400,13 +404,13 @@ d(className="android.widget.ListView", resourceId="android:id/list") \
 
 See below links for detailed information:
 
--   [UiScrollable.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByText](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
--   [UiCollection.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByText](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
+-   [UiScrollable](http://developer.android.com/tools/help/uiautomator/UiScrollable.html), `getChildByDescription`, `getChildByText`, `getChildByInstance`
+-   [UiCollection](http://developer.android.com/tools/help/uiautomator/UiCollection.html), `getChildByDescription`, `getChildByText`, `getChildByInstance`
 
 Above methods support chained invoking, e.g. for below hierarchy
 
 ```xml
-<node index="1" text="" resource-id="android:id/list" class="android.widget.ListView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="true" scrollable="true" long-clickable="false" password="false" selected="false" bounds="[0,146][720,1184]">
+<node index="1" text="" resource-id="android:id/list" class="android.widget.ListView" ...>
   <node index="0" text="WIRELESS & NETWORKS" resource-id="" class="android.widget.TextView" .../>
   <node index="1" text="" resource-id="" class="android.widget.LinearLayout" ...">
     <node index="0" text="Wi‑Fi" resource-id="android:id/title" class="android.widget.TextView" .../>
@@ -415,9 +419,12 @@ Above methods support chained invoking, e.g. for below hierarchy
   ...
 </node>
 ```
-![screenshot](https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png)
+<img src="https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png" alt="setting" style="width: 100px;"/>
 
 We want to click the switch at the right side of text 'Wi‑Fi' to turn on/of Wi‑Fi.
+As there are several switches with almost the same properties, so we can not use like
+`d(className="android.widget.Switch")` to select the ui object. Instead, we can use
+code below to select it.
 
 ```python
 d(className="android.widget.ListView", resourceId="android:id/list") \
