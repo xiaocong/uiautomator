@@ -124,14 +124,14 @@ class Selector(dict):
         "resourceId": (0x200000, None),  # MASK_RESOURCEID,
         "resourceIdMatches": (0x400000, None),  # MASK_RESOURCEIDMATCHES,
         "index": (0x800000, 0),  # MASK_INDEX,
-        "instance": (0x01000000, 0),  # MASK_INSTANCE,
-        "fromParent": (0x02000000, None),  # MASK_FROMPARENT,
-        "childSelector": (0x04000000, None)  # MASK_CHILDSELECTOR
+        "instance": (0x01000000, 0)  # MASK_INSTANCE,
     }
-    __mask = "mask"
+    __mask, __childOrSibling, __childOrSiblingSelector = "mask", "childOrSibling", "childOrSiblingSelector"
 
     def __init__(self, **kwargs):
         super(Selector, self).__setitem__(self.__mask, 0)
+        super(Selector, self).__setitem__(self.__childOrSibling, [])
+        super(Selector, self).__setitem__(self.__childOrSiblingSelector, [])
         for k in kwargs:
             self[k] = kwargs[k]
 
@@ -146,6 +146,16 @@ class Selector(dict):
         if k in self.__fields:
             super(Selector, self).__delitem__(k)
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
+
+    def child(self, **kwargs):
+        self[self.__childOrSibling].append("child")
+        self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+
+    def sibling(self, **kwargs):
+        self[self.__childOrSibling].append("sibling")
+        self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+
+    child_selector, from_parent = child, sibling
 
 
 def rect(top=0, left=0, bottom=100, right=100):
@@ -230,8 +240,6 @@ class AutomatorServer(object):
     }
 
     def __init__(self):
-        self.__local_port = None
-        self.__device_port = None
         self.uiautomator_process = None
         self.__jsonrpc_client = None
 
@@ -239,15 +247,16 @@ class AutomatorServer(object):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
         if not os.path.exists(lib_path):
             os.mkdir(lib_path)
-        for jar in self.__jar_files:
-            jarfile = os.path.join(lib_path, jar)
-            if not os.path.exists(jarfile):  # not exist, then download it
-                u = urllib2.urlopen(self.__jar_files[jar])
-                with open(jarfile, 'wb') as f:
-                    f.write(u.read())
-            # push to device
-            adb.cmd("push", jarfile, "/data/local/tmp/").wait()
+        for jar, url in self.__jar_files.items():
+            filename = os.path.join(lib_path, jar)
+            if not os.path.exists(filename):
+                self.download(filename, url)
+            adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
+
+    def download(self, filename, url):
+        with open(filename, 'wb') as file:
+            file.write(urllib2.urlopen(url).read())
 
     @property
     def jsonrpc(self):
@@ -567,27 +576,17 @@ class AutomatorDevice(object):
         return self(**kwargs).exists
 
 
-class AutomatorDeviceObject(object):
+class AutomatorDeviceUiObject(object):
 
     '''Represent a UiObject, on which user can perform actions, such as click, set text
     '''
 
     __alias = {'description': "contentDescription"}
 
-    def __init__(self, device, **kwargs):
+    def __init__(self, device, selector):
+        self.device = device
         self.jsonrpc = device.server.jsonrpc
-        self.selector = Selector(**kwargs)
-        self.__actions = []
-
-    def child_selector(self, **kwargs):
-        '''set chileSelector.'''
-        self.selector["childSelector"] = Selector(**kwargs)
-        return self
-
-    def from_parent(self, **kwargs):
-        '''set fromParent selector.'''
-        self.selector["fromParent"] = Selector(**kwargs)
-        return self
+        self.selector = selector
 
     @property
     def exists(self):
@@ -719,6 +718,99 @@ class AutomatorDeviceObject(object):
         return _swipe
 
     @property
+    def wait(self):
+        '''
+        Wait until the ui object gone or exist.
+        Usage:
+        d(text="Clock").wait.gone()  # wait until it's gone.
+        d(text="Settings").wait.exists() # wait until it appears.
+        '''
+        @param_to_property(action=["exists", "gone"])
+        def _wait(action, timeout=3000):
+            method = self.jsonrpc.waitUntilGone if action == "gone" else self.jsonrpc.waitForExists
+            return method(self.selector, timeout)
+        return _wait
+
+
+class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
+
+    def __init__(self, device, name):
+        super(AutomatorDeviceNamedUiObject, self).__init__(device, name)
+
+    def child(self, **kwargs):
+        return AutomatorDeviceNamedUiObject(
+            self.device,
+            self.jsonrpc.getChild(self.selector, Selector(**kwargs))
+        )
+
+    def sibling(self, **kwargs):
+        return AutomatorDeviceNamedUiObject(
+            self.device,
+            self.jsonrpc.getFromParent(self.selector, Selector(**kwargs))
+        )
+
+
+class AutomatorDeviceObject(AutomatorDeviceUiObject):
+
+    '''Represent a generic UiObject/UiScrollable/UiCollection, on which user can perform actions, such as click, set text
+    '''
+
+    def __init__(self, device, **kwargs):
+        super(AutomatorDeviceObject, self).__init__(device, Selector(**kwargs))
+
+    def child(self, **kwargs):
+        '''set chileSelector.'''
+        self.selector.child(**kwargs)
+        return self
+
+    def sibling(self, **kwargs):
+        '''set fromParent selector.'''
+        self.selector.sibling(**kwargs)
+        return self
+
+    child_selector, from_parent = child, sibling
+
+    def child_by_text(self, txt, **kwargs):
+        if "allow_scroll_search" in kwargs:
+            allow_scroll_search = kwargs.pop("allow_scroll_search")
+            name = self.jsonrpc.childByText(
+                self.selector,
+                Selector(**kwargs),
+                txt,
+                allow_scroll_search
+            )
+        else:
+            name = self.jsonrpc.childByText(
+                self.selector,
+                Selector(**kwargs),
+                txt
+            )
+        return AutomatorDeviceNamedUiObject(self.device, name)
+
+    def child_by_description(self, txt, **kwargs):
+        if "allow_scroll_search" in kwargs:
+            allow_scroll_search = kwargs.pop("allow_scroll_search")
+            name = self.jsonrpc.childByDescription(
+                self.selector,
+                Selector(**kwargs),
+                txt,
+                allow_scroll_search
+            )
+        else:
+            name = self.jsonrpc.childByDescription(
+                self.selector,
+                Selector(**kwargs),
+                txt
+            )
+        return AutomatorDeviceNamedUiObject(self.device, name)
+
+    def child_by_instance(self, inst, **kwargs):
+        return AutomatorDeviceNamedUiObject(
+            self.device,
+            self.jsonrpc.childByInstance(self.selector, Selector(**kwargs), inst)
+        )
+
+    @property
     def fling(self):
         '''
         Perform fling action.
@@ -785,19 +877,5 @@ class AutomatorDeviceObject(object):
             elif action == "to":
                 return __scroll_to(vertical, **kwargs)
         return _scroll
-
-    @property
-    def wait(self):
-        '''
-        Wait until the ui object gone or exist.
-        Usage:
-        d(text="Clock").wait.gone()  # wait until it's gone.
-        d(text="Settings").wait.exists() # wait until it appears.
-        '''
-        @param_to_property(action=["exists", "gone"])
-        def _wait(action, timeout=3000):
-            method = self.jsonrpc.waitUntilGone if action == "gone" else self.jsonrpc.waitForExists
-            return method(self.selector, timeout)
-        return _wait
 
 device = AutomatorDevice()

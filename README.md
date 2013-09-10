@@ -314,8 +314,6 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 -   `resourceIdMatches`
 -   `index`
 -   `instance`
--   `fromParent`
--   `childSelector`
 
 #### Check if the specific ui object exists
 
@@ -356,6 +354,76 @@ Below is a possible result:
                      u'left': 200},
   u'checkable': False
 }
+```
+
+#### Child and sibling UI object
+
+[uiautomator][] supports chained and nested selector, includes:
+
+-   [UiScrollable.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByText](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
+-   [UiCollection.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByText](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
+-   [UiObject.getChild](http://developer.android.com/tools/help/uiautomator/UiObject.html#getChild(com.android.uiautomator.core.UiSelector)), [UiObject.getFromParent](http://developer.android.com/tools/help/uiautomator/UiObject.html#getFromParent(com.android.uiautomator.core.UiSelector))
+
+##### child
+
+```python
+# get the child or grandchild
+d(className="android.widget.ListView").child(text="Bluetooth")
+```
+
+##### sibling
+
+```python
+# get sibling or child of sibling
+d(text="Google").sibling(className="android.widget.ImageView")
+```
+
+##### child by text or description or instance
+
+```python
+# get the child match className="android.widget.LinearLayout"
+# and also it or its child or grandchild contains text "Bluetooth"
+d(className="android.widget.ListView", resourceId="android:id/list") \
+ .child_by_text("Bluetooth", className="android.widget.LinearLayout")
+
+# allow scroll search to get the child
+d(className="android.widget.ListView", resourceId="android:id/list") \
+ .child_by_text("Bluetooth", allow_scroll_search=True, className="android.widget.LinearLayout")
+```
+
+- `child_by_description` is to find child which or which's grandchild contains
+    the specified description, others are the same as `child_by_text`.
+
+- `child_by_instance` is to find child which has a child UI element anywhere
+    within its sub hierarchy that is at the instance specified. It is performed
+    on visible views without **scrolling**.
+
+See below links for detailed information:
+
+-   [UiScrollable.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByText](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
+-   [UiCollection.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByText](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
+
+Above methods support chained invoking, e.g. for below hierarchy
+
+```xml
+<node index="1" text="" resource-id="android:id/list" class="android.widget.ListView" package="com.android.settings" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="true" scrollable="true" long-clickable="false" password="false" selected="false" bounds="[0,146][720,1184]">
+  <node index="0" text="WIRELESS & NETWORKS" resource-id="" class="android.widget.TextView" .../>
+  <node index="1" text="" resource-id="" class="android.widget.LinearLayout" ...">
+    <node index="0" text="Wi‑Fi" resource-id="android:id/title" class="android.widget.TextView" .../>
+    <node index="1" text="ON" resource-id="com.android.settings:id/switchWidget" class="android.widget.Switch" .../>
+  </node>
+  ...
+</node>
+```
+![screenshot](https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png)
+
+We want to click the switch at the right side of text 'Wi‑Fi' to turn on/of Wi‑Fi.
+
+```python
+d(className="android.widget.ListView", resourceId="android:id/list") \
+  .child_by_text("Wi‑Fi", className="android.widget.LinearLayout") \
+  .child(className="android.widget.Switch") \
+  .click()
 ```
 
 #### Perform click on the specific ui object
@@ -436,6 +504,17 @@ d(text="Settings").pinch.In(percent=100, steps=10)
 d(text="Settings").pinch.Out()
 ```
 
+#### Wait until the specific ui object appears or gone
+
+```python
+# wait until the ui object appears
+d(text="Settings").wait.exists(timeout=3000)
+# wait until the ui object gone
+d(text="Settings").wait.gone(timeout=1000)
+```
+
+---
+
 #### Perform fling on the specific ui object(scrollable)
 
 Possible properties:
@@ -474,15 +553,6 @@ d(scrollable=True).scroll.horiz.toBeginning(steps=100, max_swipes=1000)
 d(scrollable=True).scroll.toEnd()
 # scroll forward vertically until specific ui object appears
 d(scrollable=True).scroll.to(text="Security")
-```
-
-#### Wait until the specific ui object appears or gone
-
-```python
-# wait until the ui object appears
-d(text="Settings").wait.exists(timeout=3000)
-# wait until the ui object gone
-d(text="Settings").wait.gone(timeout=1000)
 ```
 
 ---

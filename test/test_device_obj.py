@@ -3,7 +3,7 @@
 
 import unittest
 from mock import MagicMock, call
-from uiautomator import AutomatorDeviceObject, Selector
+from uiautomator import AutomatorDeviceObject, Selector, AutomatorDeviceNamedUiObject
 
 
 class TestDeviceObjInit(unittest.TestCase):
@@ -33,15 +33,15 @@ class TestDeviceObj(unittest.TestCase):
 
     def test_child_selector(self):
         kwargs = {"text": "child text", "className": "android"}
+        self.obj.selector.child = MagicMock()
         self.obj.child_selector(**kwargs)
-        self.assertEqual(self.obj.selector["childSelector"],
-                         Selector(**kwargs))
+        self.obj.selector.child.assert_called_once_with(**kwargs)
 
     def test_from_parent(self):
         kwargs = {"text": "parent text", "className": "android"}
+        self.obj.selector.sibling = MagicMock()
         self.obj.from_parent(**kwargs)
-        self.assertEqual(self.obj.selector["fromParent"],
-                         Selector(**kwargs))
+        self.obj.selector.sibling.assert_called_once_with(**kwargs)
 
     def test_exists(self):
         self.jsonrpc.exist = MagicMock()
@@ -295,3 +295,61 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc.waitForExists.return_value = True
         self.assertTrue(self.obj.wait.exists(timeout=10))
         self.jsonrpc.waitForExists.assert_called_once_with(self.obj.selector, 10)
+
+    def test_child_by_text(self):
+        self.jsonrpc.childByText.return_value = "myname"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child_by_text("child text", **kwargs)
+        self.jsonrpc.childByText.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text")
+        self.assertEqual("myname", generic_obj.selector)
+
+    def test_child_by_text_allow_scroll_search(self):
+        self.jsonrpc.childByText.return_value = "myname"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child_by_text("child text", allow_scroll_search=False, **kwargs)
+        self.jsonrpc.childByText.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text", False)
+        self.assertEqual("myname", generic_obj.selector)
+
+    def test_child_by_description(self):
+        self.jsonrpc.childByDescription.return_value = "myname"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child_by_description("child text", **kwargs)
+        self.jsonrpc.childByDescription.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text")
+        self.assertEqual("myname", generic_obj.selector)
+
+    def test_child_by_description_allow_scroll_search(self):
+        self.jsonrpc.childByDescription.return_value = "myname"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child_by_description("child text", allow_scroll_search=False, **kwargs)
+        self.jsonrpc.childByDescription.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text", False)
+        self.assertEqual("myname", generic_obj.selector)
+
+    def test_child_by_instance(self):
+        self.jsonrpc.childByInstance.return_value = "myname"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child_by_instance(1234, **kwargs)
+        self.jsonrpc.childByInstance.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), 1234)
+        self.assertEqual("myname", generic_obj.selector)
+
+
+class TestAutomatorDeviceNamedUiObject(unittest.TestCase):
+
+    def setUp(self):
+        self.device = MagicMock()
+        self.jsonrpc = self.device.server.jsonrpc = MagicMock()
+        self.name = "my-name"
+        self.obj = AutomatorDeviceNamedUiObject(self.device, self.name)
+
+    def test_child(self):
+        self.jsonrpc.getChild.return_value = "another-name"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.child(**kwargs)
+        self.jsonrpc.getChild.assert_called_once_with(self.name, Selector(**kwargs))
+        self.assertEqual(generic_obj.selector, self.jsonrpc.getChild.return_value)
+
+    def test_sibling(self):
+        self.jsonrpc.getFromParent.return_value = "another-name"
+        kwargs = {"className": "android", "text": "patern match text"}
+        generic_obj = self.obj.sibling(**kwargs)
+        self.jsonrpc.getFromParent.assert_called_once_with(self.name, Selector(**kwargs))
+        self.assertEqual(generic_obj.selector, self.jsonrpc.getFromParent.return_value)
