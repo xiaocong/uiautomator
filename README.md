@@ -358,12 +358,6 @@ Below is a possible result:
 
 #### Child and sibling UI object
 
-[uiautomator][] supports chained and nested selector, includes:
-
--   [UiScrollable.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByText](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String, boolean)), [UiScrollable.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiScrollable.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
--   [UiCollection.getChildByDescription](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByDescription(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByText](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByText(com.android.uiautomator.core.UiSelector, java.lang.String)), [UiCollection.getChildByInstance](http://developer.android.com/tools/help/uiautomator/UiCollection.html#getChildByInstance(com.android.uiautomator.core.UiSelector, int))
--   [UiObject.getChild](http://developer.android.com/tools/help/uiautomator/UiObject.html#getChild(com.android.uiautomator.core.UiSelector)), [UiObject.getFromParent](http://developer.android.com/tools/help/uiautomator/UiObject.html#getFromParent(com.android.uiautomator.core.UiSelector))
-
 ##### child
 
 ```python
