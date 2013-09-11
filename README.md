@@ -419,7 +419,7 @@ Above methods support chained invoking, e.g. for below hierarchy
   ...
 </node>
 ```
-<img src="https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png" alt="setting" style="width: 100px;"/>
+![settings](https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png)
 
 We want to click the switch at the right side of text 'Wi‑Fi' to turn on/of Wi‑Fi.
 As there are several switches with almost the same properties, so we can not use like
