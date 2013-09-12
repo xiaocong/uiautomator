@@ -315,47 +315,6 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 -   `index`
 -   `instance`
 
-#### Check if the specific ui object exists
-
-```python
-d(text="Settings").exists # True if exists, else False
-d.exists(text="Settings") # alias of above property.
-```
-
-#### Retrieve the info of the specific ui object
-
-```python
-d(text="Settings").info
-```
-
-Below is a possible result:
-
-```
-{ u'contentDescription': u'',
-  u'checked': False,
-  u'scrollable': False,
-  u'text': u'Settings',
-  u'packageName': u'com.android.launcher',
-  u'selected': False,
-  u'enabled': True,
-  u'bounds': {u'top': 385,
-              u'right': 360,
-              u'bottom': 585,
-              u'left': 200},
-  u'className': u'android.widget.TextView',
-  u'focused': False,
-  u'focusable': True,
-  u'clickable': True,
-  u'chileCount': 0,
-  u'longClickable': True,
-  u'visibleBounds': {u'top': 385,
-                     u'right': 360,
-                     u'bottom': 585,
-                     u'left': 200},
-  u'checkable': False
-}
-```
-
 #### Child and sibling UI object
 
 ##### child
@@ -425,6 +384,78 @@ d(className="android.widget.ListView", resourceId="android:id/list") \
   .child_by_text("Wi‑Fi", className="android.widget.LinearLayout") \
   .child(className="android.widget.Switch") \
   .click()
+```
+
+#### Multiple instances
+
+Sometimes the screen may contain multiple views with the same e.g. text, then you will
+have to use "instance" properties in selector like below:
+
+```python
+d(text="Add new", instance=0)  # which means the first instance with text "Add new"
+```
+
+However, uiautomator provides list like methods to use it.
+
+```python
+# get the count of views with text "Add new" on current screen
+d(text="Add new").count
+
+# same as count property
+len(d(text="Add new"))
+
+# get the instance by index
+d(text="Add new")[0]
+d(text="Add new")[1]
+...
+
+# use iterator
+for view in d(text="Add new"):
+    view.info  # ...
+```
+
+**Notes: when you are using selector like a list, you must make sure the screen
+keep unchanged, else you may get ui-not-found error.**
+
+#### Check if the specific ui object exists
+
+```python
+d(text="Settings").exists # True if exists, else False
+d.exists(text="Settings") # alias of above property.
+```
+
+#### Retrieve the info of the specific ui object
+
+```python
+d(text="Settings").info
+```
+
+Below is a possible result:
+
+```
+{ u'contentDescription': u'',
+  u'checked': False,
+  u'scrollable': False,
+  u'text': u'Settings',
+  u'packageName': u'com.android.launcher',
+  u'selected': False,
+  u'enabled': True,
+  u'bounds': {u'top': 385,
+              u'right': 360,
+              u'bottom': 585,
+              u'left': 200},
+  u'className': u'android.widget.TextView',
+  u'focused': False,
+  u'focusable': True,
+  u'clickable': True,
+  u'chileCount': 0,
+  u'longClickable': True,
+  u'visibleBounds': {u'top': 385,
+                     u'right': 360,
+                     u'bottom': 585,
+                     u'left': 200},
+  u'checkable': False
+}
 ```
 
 #### Perform click on the specific ui object

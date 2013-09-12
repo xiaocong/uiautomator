@@ -246,7 +246,7 @@ class TestDevice(unittest.TestCase):
         with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:
             kwargs = {"text": "abc", "description": "description...", "clickable": True}
             self.device(**kwargs)
-            AutomatorDeviceObject.assert_called_once_with(self.device, **kwargs)
+            AutomatorDeviceObject.assert_called_once_with(self.device, Selector(**kwargs))
 
         with patch("uiautomator.AutomatorDeviceObject") as AutomatorDeviceObject:
             AutomatorDeviceObject.return_value.exists = True

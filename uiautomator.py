@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.12"
+__version__ = "0.1.13"
 __author__ = "Xiaocong He"
 __all__ = ["device", "rect", "point", "adb", "Selector"]
 
@@ -146,6 +146,15 @@ class Selector(dict):
         if k in self.__fields:
             super(Selector, self).__delitem__(k)
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
+
+    def clone(self):
+        kwargs = {k: self[k] for k in self if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector]}
+        selector = Selector(**kwargs)
+        for v in self[self.__childOrSibling]:
+            selector[self.__childOrSibling].append(v)
+        for s in self[self.__childOrSiblingSelector]:
+            selector[self.__childOrSiblingSelector].append(s.clone())
+        return selector
 
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
@@ -347,7 +356,7 @@ class AutomatorDevice(object):
     }
 
     def __call__(self, **kwargs):
-        return AutomatorDeviceObject(self, **kwargs)
+        return AutomatorDeviceObject(self, Selector(**kwargs))
 
     def __getattr__(self, attr):
         '''alias of fields in info property.'''
@@ -755,8 +764,8 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
     '''Represent a generic UiObject/UiScrollable/UiCollection, on which user can perform actions, such as click, set text
     '''
 
-    def __init__(self, device, **kwargs):
-        super(AutomatorDeviceObject, self).__init__(device, Selector(**kwargs))
+    def __init__(self, device, selector):
+        super(AutomatorDeviceObject, self).__init__(device, selector)
 
     def child(self, **kwargs):
         '''set chileSelector.'''
@@ -809,6 +818,42 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             self.device,
             self.jsonrpc.childByInstance(self.selector, Selector(**kwargs), inst)
         )
+
+    @property
+    def count(self):
+        return self.jsonrpc.count(self.selector)
+
+    def __len__(self):
+        return self.count
+
+    def __getitem__(self, index):
+        count = self.count
+        if index >= count:
+            raise IndexError()
+        elif count == 1:
+            return self
+        else:
+            selector = self.selector.clone()
+            selector["instance"] = index
+            return AutomatorDeviceObject(self.device, selector)
+
+    def __iter__(self):
+        obj, length = self, self.count
+
+        class Iter(object):
+
+            def __init__(self):
+                self.index = -1
+
+            def next(self):
+                self.index += 1
+                if self.index < length:
+                    return obj[self.index]
+                else:
+                    raise StopIteration()
+            __next__ = next
+
+        return Iter()
 
     @property
     def fling(self):
