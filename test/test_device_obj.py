@@ -15,7 +15,7 @@ class TestDeviceObjInit(unittest.TestCase):
     def test_init(self):
         kwargs = {"text": "text", "className": "android"}
         self.device_obj = AutomatorDeviceObject(self.device,
-                                                **kwargs)
+                                                Selector(**kwargs))
         self.assertEqual(self.device_obj.selector,
                          Selector(**kwargs))
         self.assertEqual(self.device_obj.jsonrpc,
@@ -29,7 +29,7 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc = self.device.server.jsonrpc = MagicMock()
         self.kwargs = {"text": "text", "className": "android"}
         self.obj = AutomatorDeviceObject(self.device,
-                                         **self.kwargs)
+                                         Selector(**self.kwargs))
 
     def test_child_selector(self):
         kwargs = {"text": "child text", "className": "android"}
@@ -330,6 +330,31 @@ class TestDeviceObj(unittest.TestCase):
         generic_obj = self.obj.child_by_instance(1234, **kwargs)
         self.jsonrpc.childByInstance.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), 1234)
         self.assertEqual("myname", generic_obj.selector)
+
+    def test_count(self):
+        self.jsonrpc.count.return_value = 10
+        self.assertEqual(self.obj.count, 10)
+        self.jsonrpc.count.assert_called_once_with(Selector(**self.kwargs))
+
+    def test_len(self):
+        self.jsonrpc.count.return_value = 10
+        self.assertEqual(len(self.obj), 10)
+
+    def test_instance_list(self):
+        count = 10
+        self.jsonrpc.count.return_value = count
+        for i in range(count):
+            self.assertEqual(self.obj[i].selector["instance"], i)
+        with self.assertRaises(IndexError):
+            self.obj[count]
+        self.jsonrpc.count.return_value = 1
+        self.assertEqual(self.obj[0], self.obj)
+
+    def test_instance_iter(self):
+        count = 10
+        self.jsonrpc.count.return_value = count
+        for index, inst in enumerate(self.obj):
+            self.assertEqual(inst.selector["instance"], index)
 
 
 class TestAutomatorDeviceNamedUiObject(unittest.TestCase):

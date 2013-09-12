@@ -85,3 +85,22 @@ class TestSelector(unittest.TestCase):
         sel.sibling(text="---")
         self.assertEqual(sel["childOrSibling"], ["child", "sibling"])
         self.assertEqual(sel["childOrSiblingSelector"], [Selector(text="..."), Selector(text="---")])
+
+    def test_clone(self):
+        kwargs = {
+            "text": "1234",
+            "description": "desc...",
+            "clickable": True,
+            "focusable": False,
+            "packageName": "android"
+        }
+        sel = Selector(**kwargs)
+        sel.child(text="1")
+        sel.sibling(text="1")
+        sel.child(text="1")
+
+        clone = sel.clone()
+        for k in kwargs:
+            self.assertEqual(sel[k], clone[k])
+        self.assertEqual(sel["childOrSibling"], clone["childOrSibling"])
+        self.assertEqual(sel["childOrSiblingSelector"], clone["childOrSiblingSelector"])
