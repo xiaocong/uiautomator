@@ -592,11 +592,11 @@ d(scrollable=True).scroll.to(text="Security")
 ## Contribution
 
 - Fork the repo, and clone to your computer.
-- Checkout develop branch
+- Checkout a new branch from `develop` branch
 - Install requirements: `pip install -r requirements.txt`
-- Make some changes, and update tests. Don't forget adding your name on the end of 'Contributors' section
-- Run tests on current python version `python setup.py nosetests` or all versions `tox` (python 2.7/3.2/3.3 must be installed firstly)
-- Commit your changes to repo and submit pull request.
+- Make your changes, and update tests. Don't forget adding your name at the end of 'Contributors' section
+- Pass all tests and your code must be covered: `tox`.
+- Commit your changes and submit pull request to `develop` branch.
 
 ## Contributors
 
