@@ -62,7 +62,7 @@ Below is a possible result:
 # Turn on screen
 d.screen.on()
 # Turn off screen
-d.screen.off(
+d.screen.off()
 ```
 
 Alternative method is:
@@ -404,18 +404,18 @@ d(text="Add new").count
 # same as count property
 len(d(text="Add new"))
 
-# get the instance by index
+# get the instance via index
 d(text="Add new")[0]
 d(text="Add new")[1]
 ...
 
-# use iterator
+# iterator
 for view in d(text="Add new"):
     view.info  # ...
 ```
 
 **Notes: when you are using selector like a list, you must make sure the screen
-keep unchanged, else you may get ui-not-found error.**
+keep unchanged, else you may get ui not found error.**
 
 #### Check if the specific ui object exists
 
@@ -588,6 +588,19 @@ d(scrollable=True).scroll.to(text="Security")
 ```
 
 ---
+
+## Contribution
+
+- Fork the repo, and clone to your computer.
+- Checkout develop branch
+- Install requirements: `pip install -r requirements.txt`
+- Make some changes, and update tests. Don't forget adding your name on the end of 'Contributors' section
+- Run tests on current python version `python setup.py nosetests` or all versions `tox` (python 2.7/3.2/3.3 must be installed firstly)
+- Commit your changes to repo and submit pull request.
+
+## Contributors
+
+- Xiaocong He(@xiaocong)
 
 ## Issues
 
