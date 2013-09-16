@@ -386,6 +386,22 @@ d(className="android.widget.ListView", resourceId="android:id/list") \
   .click()
 ```
 
+##### relative position
+
+Also we can use the relative position methods to get the view: `left`, `right`, `top`, `bottom`.
+
+-   `d(A).left(B)`, means selecting B on the left side of A.
+-   `d(A).right(B)`, means selecting B on the right side of A.
+-   `d(A).up(B)`, means selecting B above A.
+-   `d(A).down(B)`, means selecting B under A.
+
+So for above case, we can write code alternatively:
+
+```python
+## select "switch" on the right side of "Wi‑Fi"
+d(text="Wi‑Fi").right(className="android.widget.Switch").click()
+```
+
 #### Multiple instances
 
 Sometimes the screen may contain multiple views with the same e.g. text, then you will

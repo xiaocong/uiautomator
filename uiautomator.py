@@ -170,6 +170,13 @@ class Selector(dict):
 def rect(top=0, left=0, bottom=100, right=100):
     return {"top": top, "left": left, "bottom": bottom, "right": right}
 
+def intersect(rect1, rect2):
+    top = rect1["top"] if rect1["top"] > rect2["top"] else rect2["top"]
+    bottom = rect1["bottom"] if rect1["bottom"] < rect2["bottom"] else rect2["bottom"]
+    left = rect1["left"] if rect1["left"] > rect2["left"] else rect2["left"]
+    right = rect1["right"] if rect1["right"] < rect2["right"] else rect2["right"]
+    return left, top, right, bottom
+
 
 def point(x=0, y=0):
     return {"x": x, "y": y}
@@ -854,6 +861,36 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             __next__ = next
 
         return Iter()
+
+    def right(self, **kwargs):
+        def onrightof(rect1, rect2):
+            left, top, right, bottom = intersect(rect1, rect2)
+            return top < bottom and rect2["left"] >= rect1["right"]
+        return self.__view_beside(onrightof, **kwargs)
+
+    def left(self, **kwargs):
+        def onleftof(rect1, rect2):
+            left, top, right, bottom = intersect(rect1, rect2)
+            return top < bottom and rect2["right"] <= rect1["left"]
+        return self.__view_beside(onleftof, **kwargs)
+
+    def up(self, **kwargs):
+        def above(rect1, rect2):
+            left, top, right, bottom = intersect(rect1, rect2)
+            return left < right and rect2["bottom"] <= rect1["top"]
+        return self.__view_beside(above, **kwargs)
+
+    def down(self, **kwargs):
+        def under(rect1, rect2):
+            left, top, right, bottom = intersect(rect1, rect2)
+            return left < right and rect2["top"] >= rect1["bottom"]
+        return self.__view_beside(under, **kwargs)
+
+    def __view_beside(self, onsideof, **kwargs):
+        origin_bounds = self.info["bounds"]
+        for ui in AutomatorDeviceObject(self.device, Selector(**kwargs)):
+            if onsideof(origin_bounds, ui.info["bounds"]):
+                return ui
 
     @property
     def fling(self):
