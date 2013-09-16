@@ -62,7 +62,7 @@ Below is a possible result:
 # Turn on screen
 d.screen.on()
 # Turn off screen
-d.screen.off(
+d.screen.off()
 ```
 
 Alternative method is:
@@ -386,6 +386,22 @@ d(className="android.widget.ListView", resourceId="android:id/list") \
   .click()
 ```
 
+##### relative position
+
+Also we can use the relative position methods to get the view: `left`, `right`, `top`, `bottom`.
+
+-   `d(A).left(B)`, means selecting B on the left side of A.
+-   `d(A).right(B)`, means selecting B on the right side of A.
+-   `d(A).up(B)`, means selecting B above A.
+-   `d(A).down(B)`, means selecting B under A.
+
+So for above case, we can write code alternatively:
+
+```python
+## select "switch" on the right side of "Wi‑Fi"
+d(text="Wi‑Fi").right(className="android.widget.Switch").click()
+```
+
 #### Multiple instances
 
 Sometimes the screen may contain multiple views with the same e.g. text, then you will
@@ -404,18 +420,18 @@ d(text="Add new").count
 # same as count property
 len(d(text="Add new"))
 
-# get the instance by index
+# get the instance via index
 d(text="Add new")[0]
 d(text="Add new")[1]
 ...
 
-# use iterator
+# iterator
 for view in d(text="Add new"):
     view.info  # ...
 ```
 
 **Notes: when you are using selector like a list, you must make sure the screen
-keep unchanged, else you may get ui-not-found error.**
+keep unchanged, else you may get ui not found error.**
 
 #### Check if the specific ui object exists
 
@@ -588,6 +604,19 @@ d(scrollable=True).scroll.to(text="Security")
 ```
 
 ---
+
+## Contribution
+
+- Fork the repo, and clone to your computer.
+- Checkout a new branch from `develop` branch
+- Install requirements: `pip install -r requirements.txt`
+- Make your changes, and update tests. Don't forget adding your name at the end of 'Contributors' section
+- Pass all tests and your code must be covered: `tox`.
+- Commit your changes and submit pull request to `develop` branch.
+
+## Contributors
+
+- Xiaocong He(@xiaocong)
 
 ## Issues
 

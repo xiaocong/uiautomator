@@ -71,9 +71,9 @@ class TestDeviceObj(unittest.TestCase):
                 'selected': False,
                 'enabled': True,
                 'bounds': {'top': 0,
-                            'left': 0,
-                            'right': 720,
-                            'bottom': 1184},
+                           'left': 0,
+                           'right': 720,
+                           'bottom': 1184},
                 'className':
                 'android.widget.FrameLayout',
                 'focusable': False,
@@ -83,9 +83,9 @@ class TestDeviceObj(unittest.TestCase):
                 'chileCount': 2,
                 'longClickable': False,
                 'visibleBounds': {'top': 0,
-                                   'left': 0,
-                                   'right': 720,
-                                   'bottom': 1184}}
+                                  'left': 0,
+                                  'right': 720,
+                                  'bottom': 1184}}
         self.jsonrpc.objInfo.return_value = info
         self.assertEqual(self.obj.info, info)
         self.jsonrpc.objInfo.assert_called_once_with(self.obj.selector)
@@ -217,7 +217,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.fling())
         self.assertEqual(self.jsonrpc.flingForward.call_args_list,
                          [call(self.obj.selector, False), call(self.obj.selector, False), call(self.obj.selector, True), call(self.obj.selector, True)])
-        
+
         self.jsonrpc.flingBackward.return_value = True
         self.assertTrue(self.obj.fling.horiz.backward())
         self.assertTrue(self.obj.fling.horizentally.backward())
@@ -225,7 +225,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.fling.vertically.backward())
         self.assertEqual(self.jsonrpc.flingBackward.call_args_list,
                          [call(self.obj.selector, False), call(self.obj.selector, False), call(self.obj.selector, True), call(self.obj.selector, True)])
-        
+
         max_swipes = 1000
         self.jsonrpc.flingToBeginning.return_value = True
         self.assertTrue(self.obj.fling.horiz.toBeginning())
@@ -253,7 +253,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll(steps=20))
         self.assertEqual(self.jsonrpc.scrollForward.call_args_list,
                          [call(self.obj.selector, False, steps), call(self.obj.selector, False, steps), call(self.obj.selector, True, steps), call(self.obj.selector, True, 20)])
-        
+
         self.jsonrpc.scrollBackward.return_value = True
         self.assertTrue(self.obj.scroll.horiz.backward())
         self.assertTrue(self.obj.scroll.horizentally.backward())
@@ -261,7 +261,7 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.scroll.vertically.backward(steps=20))
         self.assertEqual(self.jsonrpc.scrollBackward.call_args_list,
                          [call(self.obj.selector, False, steps), call(self.obj.selector, False, steps), call(self.obj.selector, True, steps), call(self.obj.selector, True, 20)])
-        
+
         self.jsonrpc.scrollToBeginning.return_value = True
         self.assertTrue(self.obj.scroll.horiz.toBeginning())
         self.assertTrue(self.obj.scroll.horizentally.toBeginning())
@@ -307,21 +307,24 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc.childByText.return_value = "myname"
         kwargs = {"className": "android", "text": "patern match text"}
         generic_obj = self.obj.child_by_text("child text", allow_scroll_search=False, **kwargs)
-        self.jsonrpc.childByText.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text", False)
+        self.jsonrpc.childByText.assert_called_once_with(
+            Selector(**self.kwargs), Selector(**kwargs), "child text", False)
         self.assertEqual("myname", generic_obj.selector)
 
     def test_child_by_description(self):
         self.jsonrpc.childByDescription.return_value = "myname"
         kwargs = {"className": "android", "text": "patern match text"}
         generic_obj = self.obj.child_by_description("child text", **kwargs)
-        self.jsonrpc.childByDescription.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text")
+        self.jsonrpc.childByDescription.assert_called_once_with(
+            Selector(**self.kwargs), Selector(**kwargs), "child text")
         self.assertEqual("myname", generic_obj.selector)
 
     def test_child_by_description_allow_scroll_search(self):
         self.jsonrpc.childByDescription.return_value = "myname"
         kwargs = {"className": "android", "text": "patern match text"}
         generic_obj = self.obj.child_by_description("child text", allow_scroll_search=False, **kwargs)
-        self.jsonrpc.childByDescription.assert_called_once_with(Selector(**self.kwargs), Selector(**kwargs), "child text", False)
+        self.jsonrpc.childByDescription.assert_called_once_with(
+            Selector(**self.kwargs), Selector(**kwargs), "child text", False)
         self.assertEqual("myname", generic_obj.selector)
 
     def test_child_by_instance(self):
@@ -356,6 +359,45 @@ class TestDeviceObj(unittest.TestCase):
         for index, inst in enumerate(self.obj):
             self.assertEqual(inst.selector["instance"], index)
 
+    def test_left(self):
+        self.jsonrpc.objInfo.side_effect = [
+            {"bounds": {'top': 200, 'bottom': 250, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 200, 'bottom': 300, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 200, 'bottom': 300, 'left': 50, 'right': 100}}
+        ]
+        self.jsonrpc.count.return_value = 3
+        self.assertEqual(self.obj.left().selector["instance"], 2)
+
+    def test_right(self):
+        self.jsonrpc.objInfo.side_effect = [
+            {"bounds": {'top': 200, 'bottom': 250, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 200, 'bottom': 300, 'left': 50, 'right': 100}},
+            {"bounds": {'top': 200, 'bottom': 300, 'left': 150, 'right': 200}}
+        ]
+        self.jsonrpc.count.return_value = 3
+        self.assertEqual(self.obj.right().selector["instance"], 2)
+
+    def test_up(self):
+        self.jsonrpc.objInfo.side_effect = [
+            {"bounds": {'top': 200, 'bottom': 250, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 150, 'bottom': 200, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 150, 'bottom': 200, 'left': 100, 'right': 200}}
+        ]
+        self.jsonrpc.count.return_value = 3
+        self.assertEqual(self.obj.up().selector["instance"], 2)
+
+    def test_down(self):
+        self.jsonrpc.objInfo.side_effect = [
+            {"bounds": {'top': 200, 'bottom': 250, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 150, 'bottom': 200, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 100, 'right': 150}}
+        ]
+        self.jsonrpc.count.return_value = 3
+        self.assertEqual(self.obj.down().selector["instance"], 2)
 
 class TestAutomatorDeviceNamedUiObject(unittest.TestCase):
 
