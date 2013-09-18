@@ -363,11 +363,13 @@ See below links for detailed information:
 Above methods support chained invoking, e.g. for below hierarchy
 
 ```xml
-<node index="1" text="" resource-id="android:id/list" class="android.widget.ListView" ...>
+<node index="0" text="" resource-id="android:id/list" class="android.widget.ListView" ...>
   <node index="0" text="WIRELESS & NETWORKS" resource-id="" class="android.widget.TextView" .../>
-  <node index="1" text="" resource-id="" class="android.widget.LinearLayout" ...">
-    <node index="0" text="Wi‑Fi" resource-id="android:id/title" class="android.widget.TextView" .../>
-    <node index="1" text="ON" resource-id="com.android.settings:id/switchWidget" class="android.widget.Switch" .../>
+  <node index="1" text="" resource-id="" class="android.widget.LinearLayout" ...>
+    <node index="1" text="" resource-id="" class="android.widget.RelativeLayout" .../>
+      <node index="0" text="Wi‑Fi" resource-id="android:id/title" class="android.widget.TextView" .../>
+    </node>
+    <node index="2" text="ON" resource-id="com.android.settings:id/switchWidget" class="android.widget.Switch" .../>
   </node>
   ...
 </node>
