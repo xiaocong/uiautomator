@@ -99,7 +99,7 @@ Next keys are currently supported:
 - `menu`
 - `search`
 - `enter`
-- `delete`(or `del`) (can not work until Android 4.3)
+- `delete`(or `del`)
 - `recent`(recent apps)
 - `volume_up`
 - `volume_down`
@@ -164,7 +164,7 @@ d.freeze_rotation(False)
 ### Take screenshot
 
 ```python
-# take screenshot and save to local file "home.png", can not work until Android 4.3.
+# take screenshot and save to local file "home.png", can not work until Android 4.2.
 d.screenshot("home.png")
 ```
 
@@ -618,8 +618,8 @@ d(scrollable=True).scroll.to(text="Security")
 
 ## Contributors
 
-- Xiaocong He ([@xiaocong][0])
-- Yuanyuan Zou ([@yuanyuan][1])
+- Xiaocong He ([@xiaocong][])
+- Yuanyuan Zou ([@yuanyuan][])
 
 ## Issues
 
@@ -634,5 +634,5 @@ If you have any suggestions, bug reports or annoyances please report them to our
 
 [uiautomator]: http://developer.android.com/tools/testing/testing_ui.html "Android ui testing"
 
- [0]: https://github.com/xiaocong/uiautomator
- [1]: https://github.com/yuanyuanzou/uiautomator
+ [@xiaocong]: https://github.com/xiaocong
+ [@yuanyuan]: https://github.com/yuanyuanzou
