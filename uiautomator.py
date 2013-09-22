@@ -197,6 +197,8 @@ class Adb(object):
                         "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
             else:
                 import distutils
+                if "spawn" not in dir(distutils):
+                    import distutils.spawn
                 adb_cmd = distutils.spawn.find_executable("adb")
                 if adb_cmd:
                     adb_cmd = os.path.realpath(adb_cmd)
