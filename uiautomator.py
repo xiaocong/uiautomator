@@ -867,32 +867,36 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
     def right(self, **kwargs):
         def onrightof(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
-            return top < bottom and rect2["left"] >= rect1["right"]
+            return rect2["left"] - rect1["right"] if top < bottom else -1
         return self.__view_beside(onrightof, **kwargs)
 
     def left(self, **kwargs):
         def onleftof(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
-            return top < bottom and rect2["right"] <= rect1["left"]
+            return rect1["left"] - rect2["right"] if top < bottom else -1
         return self.__view_beside(onleftof, **kwargs)
 
     def up(self, **kwargs):
         def above(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
-            return left < right and rect2["bottom"] <= rect1["top"]
+            return rect1["top"] - rect2["bottom"] if left < right else -1 
         return self.__view_beside(above, **kwargs)
 
     def down(self, **kwargs):
         def under(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
-            return left < right and rect2["top"] >= rect1["bottom"]
+            return rect2["top"] - rect1["bottom"] if left < right else -1
         return self.__view_beside(under, **kwargs)
 
     def __view_beside(self, onsideof, **kwargs):
-        origin_bounds = self.info["bounds"]
+        bounds = self.info["bounds"]
+        min_dist, found = -1, None
         for ui in AutomatorDeviceObject(self.device, Selector(**kwargs)):
-            if onsideof(origin_bounds, ui.info["bounds"]):
-                return ui
+            dist = onsideof(bounds, ui.info["bounds"])
+            if dist >= 0 and (min_dist < 0 or dist < min_dist):
+                min_dist, found = dist, ui
+        return found
+
 
     @property
     def fling(self):
