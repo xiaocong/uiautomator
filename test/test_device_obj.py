@@ -399,6 +399,18 @@ class TestDeviceObj(unittest.TestCase):
         self.jsonrpc.count.return_value = 3
         self.assertEqual(self.obj.down().selector["instance"], 2)
 
+    def test_multiple_matched_down(self):
+        self.jsonrpc.objInfo.side_effect = [
+            {"bounds": {'top': 200, 'bottom': 250, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 300, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 150, 'bottom': 200, 'left': 150, 'right': 200}},
+            {"bounds": {'top': 275, 'bottom': 300, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 300, 'bottom': 350, 'left': 100, 'right': 150}},
+            {"bounds": {'top': 250, 'bottom': 275, 'left': 100, 'right': 150}}
+        ]
+        self.jsonrpc.count.return_value = 5
+        self.assertEqual(self.obj.down().selector["instance"], 4)
+
 class TestAutomatorDeviceNamedUiObject(unittest.TestCase):
 
     def setUp(self):
