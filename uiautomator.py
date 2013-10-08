@@ -267,7 +267,7 @@ class AutomatorServer(object):
             os.mkdir(lib_path)
         for jar, url in self.__jar_files.items():
             filename = os.path.join(lib_path, jar)
-            if not os.path.exists(filename):
+            if not os.path.exists(filename) or os.stat(filename).st_size == 0:
                 self.download(filename, url)
             adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
