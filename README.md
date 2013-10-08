@@ -603,7 +603,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 
   ```python
   # scroll forward(default) vertically(default)
-  d(scrollable=True).scroll(stpes=10)
+  d(scrollable=True).scroll(steps=10)
   # scroll forward horizentally
   d(scrollable=True).scroll.horiz.forward(steps=100)
   # scroll backward vertically
