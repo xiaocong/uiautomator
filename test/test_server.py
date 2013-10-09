@@ -105,9 +105,11 @@ class TestAutomatorServer_Stop(unittest.TestCase):
     @patch("uiautomator.adb")
     def test_download_and_push(self, adb):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("os.path.exists") as exists:
+        with patch("os.path.exists") as exists, \
+             patch("os.stat") as stat:
             server = AutomatorServer()
             exists.return_value = True
+            stat.st_size = 1024
             self.assertEqual(set(server.download_and_push()), set(jars))
             for args in adb.cmd.call_args_list:
                 self.assertEqual(args[0][0], "push")
@@ -117,12 +119,10 @@ class TestAutomatorServer_Stop(unittest.TestCase):
     def test_download_and_push_download(self, adb):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
         with patch("os.path.exists") as exists, \
-             patch("os.stat") as stat, \
              patch("os.mkdir") as mkdir, \
              patch("%s.open" % open.__class__.__module__, mock_open(), create=True) as m_open:
             server = AutomatorServer()
             exists.return_value = False
-            stat.st_size = 1024
             self.assertEqual(set(server.download_and_push()), set(jars))
             self.assertEqual(len(m_open.call_args_list), len(jars))
 
