@@ -30,17 +30,17 @@ d(text="Clock").click()
 
 - If `ANDROID_SERIAL` is defined in environment, or there is only one device connected:
 
-```python
-from uiautomator import device as d
-```
+  ```python
+  from uiautomator import device as d
+  ```
 
 - Speficy the serial number when retrieving the device object
 
-```python
-from uiautomator import Device
+  ```python
+  from uiautomator import Device
 
-d = Device('014E05DE0F02000E')
-```
+  d = Device('014E05DE0F02000E')
+  ```
 
 **Notes**: In below examples, we use `d` represent the android device object.
 
