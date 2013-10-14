@@ -40,28 +40,26 @@ class TestDevice(unittest.TestCase):
     def test_dump(self):
         self.device.server.jsonrpc.dumpWindowHierarchy = MagicMock()
         self.device.server.jsonrpc.dumpWindowHierarchy.return_value = "1.xml"
-        with patch("uiautomator.adb.cmd") as cmd:
-            cmd.return_value.returncode = 0
-            self.assertEqual(self.device.dump("test.xml"), "test.xml")
-            self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, "dump.xml")
-            self.assertEqual(cmd.call_args_list, [call("pull", "1.xml", "test.xml"), call("shell", "rm", "1.xml")])
+        self.device.server.adb.cmd = cmd = MagicMock()
+        cmd.return_value.returncode = 0
+        self.assertEqual(self.device.dump("test.xml"), "test.xml")
+        self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, "dump.xml")
+        self.assertEqual(cmd.call_args_list, [call("pull", "1.xml", "test.xml"), call("shell", "rm", "1.xml")])
 
         self.device.server.jsonrpc.dumpWindowHierarchy.return_value = None
-        with patch("uiautomator.adb.cmd") as cmd:
-            self.assertEqual(self.device.dump("test.xml"), None)
+        self.assertEqual(self.device.dump("test.xml"), None)
 
     def test_screenshot(self):
         self.device.server.jsonrpc.takeScreenshot = MagicMock()
         self.device.server.jsonrpc.takeScreenshot.return_value = "1.png"
-        with patch("uiautomator.adb.cmd") as cmd:
-            cmd.return_value.returncode = 0
-            self.assertEqual(self.device.screenshot("a.png", 1.0, 99), "a.png")
-            self.device.server.jsonrpc.takeScreenshot.assert_called_once_with("screenshot.png", 1.0, 99)
-            self.assertEqual(cmd.call_args_list, [call("pull", "1.png", "a.png"), call("shell", "rm", "1.png")])
+        self.device.server.adb.cmd = cmd = MagicMock()
+        cmd.return_value.returncode = 0
+        self.assertEqual(self.device.screenshot("a.png", 1.0, 99), "a.png")
+        self.device.server.jsonrpc.takeScreenshot.assert_called_once_with("screenshot.png", 1.0, 99)
+        self.assertEqual(cmd.call_args_list, [call("pull", "1.png", "a.png"), call("shell", "rm", "1.png")])
 
         self.device.server.jsonrpc.takeScreenshot.return_value = None
-        with patch("uiautomator.adb.cmd") as cmd:
-            self.assertEqual(self.device.screenshot("a.png", 1.0, 100), None)
+        self.assertEqual(self.device.screenshot("a.png", 1.0, 100), None)
 
     def test_freeze_rotation(self):
         self.device.server.jsonrpc.freezeRotation = MagicMock()
@@ -253,3 +251,11 @@ class TestDevice(unittest.TestCase):
             self.assertTrue(self.device.exists(clickable=True))
             AutomatorDeviceObject.return_value.exists = False
             self.assertFalse(self.device.exists(text="..."))
+
+class TestDeviceWithSerial(unittest.TestCase):
+
+    def setUp(self):
+        self.device = AutomatorDevice("abcdefhijklmn")
+
+    def test_serial(self):
+        self.assertEqual(self.device.server.adb.default_serial, "abcdefhijklmn")

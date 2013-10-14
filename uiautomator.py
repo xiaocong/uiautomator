@@ -19,7 +19,7 @@ except ImportError:
 
 __version__ = "0.1.15"
 __author__ = "Xiaocong He"
-__all__ = ["device", "rect", "point", "adb", "Selector"]
+__all__ = ["device", "Device", "rect", "point", "Selector"]
 
 
 def param_to_property(*props, **kwprops):
@@ -184,8 +184,9 @@ def point(x=0, y=0):
 
 class Adb(object):
 
-    def __init__(self):
+    def __init__(self, serial=None):
         self.__adb_cmd = None
+        self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -223,14 +224,15 @@ class Adb(object):
         devices = self.devices()
         if not devices:
             raise EnvironmentError("Device not attached.")
-        if "ANDROID_SERIAL" in os.environ:
-            if os.environ["ANDROID_SERIAL"] not in devices:
-                raise EnvironmentError("Device %s not connected!" % os.environ["ANDROID_SERIAL"])
-        elif len(devices) > 1:
-            raise EnvironmentError("Multiple devices attaches but $ANDROID_SERIAL environment incorrect.")
+
+        if self.default_serial:
+            if self.default_serial not in devices:
+                raise EnvironmentError("Device %s not connected!" % self.default_serial)
+        elif len(devices) == 1:
+            self.default_serial = list(devices.keys())[0]
         else:
-            os.environ["ANDROID_SERIAL"] = list(devices.keys())[0]
-        return os.environ["ANDROID_SERIAL"]
+            raise EnvironmentError("Multiple devices attached but default android serial not set.")
+        return self.default_serial
 
     def devices(self):
         '''get a dict of attached devices. key is the device serial, value is device name.'''
@@ -245,8 +247,6 @@ class Adb(object):
         '''adb port forward. return 0 if success, else non-zero.'''
         return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
 
-adb = Adb()
-
 
 class AutomatorServer(object):
 
@@ -257,9 +257,10 @@ class AutomatorServer(object):
         "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/blob/release/dist/uiautomator-stub.jar?raw=true"
     }
 
-    def __init__(self):
+    def __init__(self, serial=None):
         self.uiautomator_process = None
         self.__jsonrpc_client = None
+        self.adb = Adb(serial=serial)
 
     def download_and_push(self):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")
@@ -269,7 +270,7 @@ class AutomatorServer(object):
             filename = os.path.join(lib_path, jar)
             if not os.path.exists(filename) or os.stat(filename).st_size == 0:
                 self.download(filename, url)
-            adb.cmd("push", filename, "/data/local/tmp/").wait()
+            self.adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
 
     def download(self, filename, url):
@@ -300,8 +301,8 @@ class AutomatorServer(object):
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.uiautomator_process = adb.cmd(*cmd)
-        if adb.forward(self.local_port, self.device_port) != 0:
+        self.uiautomator_process = self.adb.cmd(*cmd)
+        if self.adb.forward(self.local_port, self.device_port) != 0:
             raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
@@ -332,12 +333,12 @@ class AutomatorServer(object):
                 self.uiautomator_process.kill()
             finally:
                 self.uiautomator_process = None
-        out = adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
+        out = self.adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
         if out:
             index = out[0].split().index("PID")
             for line in out[1:]:
                 if len(line.split()) > index:
-                    adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
+                    self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
 
     @property
     def stop_uri(self):
@@ -351,7 +352,6 @@ class AutomatorServer(object):
 class AutomatorDevice(object):
 
     '''uiautomator wrapper of android device'''
-    server = AutomatorServer()
 
     __orientation = (  # device orientation
         (0, "natural", "n", 0),
@@ -363,6 +363,9 @@ class AutomatorDevice(object):
         "width": "displayWidth",
         "height": "displayHeight"
     }
+
+    def __init__(self, serial=None):
+        self.server = AutomatorServer(serial=serial)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -398,9 +401,9 @@ class AutomatorDevice(object):
         device_file = self.server.jsonrpc.dumpWindowHierarchy(True, "dump.xml")
         if not device_file:
             return None
-        p = adb.cmd("pull", device_file, filename)
+        p = self.server.adb.cmd("pull", device_file, filename)
         p.wait()
-        adb.cmd("shell", "rm", device_file).wait()
+        self.server.adb.cmd("shell", "rm", device_file).wait()
         return filename if p.returncode is 0 else None
 
     def screenshot(self, filename, scale=1.0, quality=100):
@@ -409,9 +412,9 @@ class AutomatorDevice(object):
                                                          scale, quality)
         if not device_file:
             return None
-        p = adb.cmd("pull", device_file, filename)
+        p = self.server.adb.cmd("pull", device_file, filename)
         p.wait()
-        adb.cmd("shell", "rm", device_file).wait()
+        self.server.adb.cmd("shell", "rm", device_file).wait()
         return filename if p.returncode is 0 else None
 
     def freeze_rotation(self, freeze=True):
@@ -593,6 +596,8 @@ class AutomatorDevice(object):
         '''Check if the specified ui object by kwargs exists.'''
         return self(**kwargs).exists
 
+Device = AutomatorDevice
+
 
 class AutomatorDeviceUiObject(object):
 
@@ -698,8 +703,9 @@ class AutomatorDeviceUiObject(object):
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
         def to(obj_self, end1, end2, steps=100):
-            return self.jsonrpc.gesture(self.selector, start1, start2,
-                                        end1, end2, steps)
+            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt # convert tuple to point
+            s1, s2, e1, e2 = ctp(start1), ctp(start2), ctp(end1), ctp(end2)
+            return self.jsonrpc.gesture(self.selector, s1, s2, e1, e2, steps)
         obj = type("Gesture", (object,), {"to": to})()
         return obj if len(args) == 0 else to(None, *args, **kwargs)
 

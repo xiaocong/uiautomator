@@ -173,10 +173,10 @@ class TestDeviceObj(unittest.TestCase):
 
     def test_gesture(self):
         self.jsonrpc.gesture.return_value = True
-        self.assertTrue(self.obj.gesture(1, 2, 3, 4, 100))
+        self.assertTrue(self.obj.gesture((1, 1), (2, 2), (3, 3), (4, 4), 100))
         self.assertTrue(self.obj.gesture(4, 3).to(2, 1, 20))
         self.assertEqual(self.jsonrpc.gesture.call_args_list,
-                         [call(self.obj.selector, 1, 2, 3, 4, 100), call(self.obj.selector, 4, 3, 2, 1, 20)])
+                         [call(self.obj.selector, {'x':1, 'y': 1}, {'x':2, 'y':2}, {'x':3, 'y':3}, {'x':4, 'y':4}, 100), call(self.obj.selector, 4, 3, 2, 1, 20)])
 
     def test_pinch(self):
         self.jsonrpc.pinchIn.return_value = True

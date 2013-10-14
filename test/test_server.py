@@ -29,23 +29,23 @@ class TestAutomatorServer(unittest.TestCase):
         server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
         server.ping.return_value = "pong"
-        with patch("uiautomator.adb") as adb:
-            adb.forward.return_value = 0
-            with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-                server.start()
-                adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
-                adb.forward.assert_called_once_with(9000, 9000)
+        server.adb = MagicMock()
+        server.adb.forward.return_value = 0
+        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
+            server.start()
+            server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
+            server.adb.forward.assert_called_once_with(9000, 9000)
 
     def test_start_forward_error(self):
         server = AutomatorServer()
         server.download_and_push = MagicMock()
         server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("uiautomator.adb") as adb:
-            adb.forward.return_value = 1
-            with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-                with self.assertRaises(IOError):
-                    server.start()
-                adb.forward.assert_called_once_with(9000, 9000)
+        server.adb = MagicMock()
+        server.adb.forward.return_value = 1
+        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
+            with self.assertRaises(IOError):
+                server.start()
+            server.adb.forward.assert_called_once_with(9000, 9000)
 
     def test_start_error(self):
         server = AutomatorServer()
@@ -53,13 +53,13 @@ class TestAutomatorServer(unittest.TestCase):
         server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
         server.ping.return_value = None
-        with patch("uiautomator.adb") as adb:
-            adb.forward.return_value = 0
-            with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-                with patch("time.sleep"):
-                    with self.assertRaises(IOError):
-                        server.start()
-                adb.forward.assert_called_once_with(9000, 9000)
+        server.adb = MagicMock()
+        server.adb.forward.return_value = 0
+        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
+            with patch("time.sleep"):
+                with self.assertRaises(IOError):
+                    server.start()
+            server.adb.forward.assert_called_once_with(9000, 9000)
 
     def test_auto_start(self):
         with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
@@ -102,34 +102,33 @@ class TestAutomatorServer_Stop(unittest.TestCase):
     def tearDown(self):
         self.urlopen_patch.stop()
 
-    @patch("uiautomator.adb")
-    def test_download_and_push(self, adb):
+    def test_download_and_push(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("os.path.exists") as exists, \
-             patch("os.stat") as stat:
-            server = AutomatorServer()
-            exists.return_value = True
-            stat.st_size = 1024
-            self.assertEqual(set(server.download_and_push()), set(jars))
-            for args in adb.cmd.call_args_list:
-                self.assertEqual(args[0][0], "push")
-                self.assertEqual(args[0][2], "/data/local/tmp/")
+        with patch("os.path.exists") as exists:
+            with patch("os.stat") as stat:
+                server = AutomatorServer()
+                server.adb = MagicMock()
+                exists.return_value = True
+                stat.st_size = 1024
+                self.assertEqual(set(server.download_and_push()), set(jars))
+                for args in server.adb.cmd.call_args_list:
+                    self.assertEqual(args[0][0], "push")
+                    self.assertEqual(args[0][2], "/data/local/tmp/")
 
-    @patch("uiautomator.adb")
-    def test_download_and_push_download(self, adb):
+    def test_download_and_push_download(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("os.path.exists") as exists, \
-             patch("os.mkdir") as mkdir, \
-             patch("%s.open" % open.__class__.__module__, mock_open(), create=True) as m_open:
-            server = AutomatorServer()
-            exists.return_value = False
-            self.assertEqual(set(server.download_and_push()), set(jars))
-            self.assertEqual(len(m_open.call_args_list), len(jars))
+        with patch("os.path.exists") as exists:
+            with patch("os.mkdir") as mkdir:
+                with patch("%s.open" % open.__class__.__module__, mock_open(), create=True) as m_open:
+                    server = AutomatorServer()
+                    server.adb = MagicMock()
+                    exists.return_value = False
+                    self.assertEqual(set(server.download_and_push()), set(jars))
+                    self.assertEqual(len(m_open.call_args_list), len(jars))
 
-    @patch("uiautomator.adb")
-    def test_stop_started_server(self, adb):
-        serial = "76HDGKDN783HD6D"
+    def test_stop_started_server(self):
         server = AutomatorServer()
+        server.adb = MagicMock()
         server.uiautomator_process = process = MagicMock()
         process.poll.return_value = None
         server.stop()
@@ -149,9 +148,9 @@ class TestAutomatorServer_Stop(unittest.TestCase):
             b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\rsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator"
         ]
         for r in results:
-            with patch("uiautomator.adb") as adb:
-                adb.cmd.return_value.communicate.return_value = (r, "")
-                server = AutomatorServer()
-                server.stop()
-                self.assertEqual(adb.cmd.call_args_list,
-                                 [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])
+            server = AutomatorServer()
+            server.adb = MagicMock()
+            server.adb.cmd.return_value.communicate.return_value = (r, "")
+            server.stop()
+            self.assertEqual(server.adb.cmd.call_args_list,
+                             [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])

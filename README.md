@@ -28,11 +28,21 @@ d(text="Clock").click()
 
 ### import uiautomator
 
+- If `ANDROID_SERIAL` is defined in environment, or there is only one device connected:
+
 ```python
 from uiautomator import device as d
 ```
 
-**In below examples, we use `d` represent the android device object.**
+- Speficy the serial number when retrieving the device object
+
+```python
+from uiautomator import Device
+
+d = Device('014E05DE0F02000E')
+```
+
+**Notes**: In below examples, we use `d` represent the android device object.
 
 ### Table of Contents
 **[Basic API Usages](#basic-api-usages)** 
@@ -49,7 +59,8 @@ from uiautomator import device as d
   - **[Gesture action for the specific ui object](#gesture-action-for-the-specific-ui-object)**
 
 ### Basic API Usages
-  This part show the normal actions of the device through some simple examples.
+
+This part show the normal actions of the device through some simple examples.
 
 * Retrieve the device info
 
@@ -152,7 +163,7 @@ from uiautomator import device as d
   d.drag(sx, sy, ex, ey)
   # drag from (sx, sy) to (ex, ey) with 10 steps
   d.drag(sx, sy, ex, ey, steps=10)
-```
+  ```
 
 ### Screen Actions of the device
 
@@ -246,7 +257,7 @@ from uiautomator import device as d
   #  .when(condition)  ## the UiSelector condition of the watcher.
   #  .press.<keyname>.....<keyname>.()  ## press keys one by one in sequence.
   #  Alternavie way defining key sequence is press(<keybname>, ..., <keyname>)
-```
+  ```
 
 * Check if the named watcher triggered
 
@@ -305,10 +316,10 @@ from uiautomator import device as d
 
 Selector is to identify specific ui object in current window.
 
-  ```python
-  # To seleted the object ,text is 'Clock' and its className is 'android.widget.TextView'
-  d(text='Clock', className='android.widget.TextView')
-  ```
+```python
+# To seleted the object ,text is 'Clock' and its className is 'android.widget.TextView'
+d(text='Clock', className='android.widget.TextView')
+```
 
 Selector supports below parameters. Refer to [UiSelector java doc](http://developer.android.com/tools/help/uiautomator/UiSelector.html) for detailed information.
 
@@ -372,7 +383,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
   <node index="0" text="" resource-id="android:id/list" class="android.widget.ListView" ...>
     <node index="0" text="WIRELESS & NETWORKS" resource-id="" class="android.widget.TextView" .../>
     <node index="1" text="" resource-id="" class="android.widget.LinearLayout" ...>
-      <node index="1" text="" resource-id="" class="android.widget.RelativeLayout" .../>
+      <node index="1" text="" resource-id="" class="android.widget.RelativeLayout" ...>
         <node index="0" text="Wi‑Fi" resource-id="android:id/title" class="android.widget.TextView" .../>
       </node>
       <node index="2" text="ON" resource-id="com.android.settings:id/switchWidget" class="android.widget.Switch" .../>
@@ -438,8 +449,8 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
       view.info  # ...
   ```
 
-  **Notes: when you are using selector like a list, you must make sure the screen
-  keep unchanged, else you may get ui not found error.**
+  **Notes**: when you are using selector like a list, you must make sure the screen
+  keep unchanged, else you may get ui not found error.
 
 #### Get the selected ui object status and its information
 
@@ -547,10 +558,8 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 * Two point gesture from one point to another
 
   ```python
-  from uiautomator import point
-
-  d(text="Settings").gesture(point(sx1, sy1), point(sx2, sy2)) \
-                    .to(point(ex1, ey1), point(ex2, ey2))
+  d(text="Settings").gesture((sx1, sy1), (sx2, sy2)) \
+                    .to((ex1, ey1), (ex2, ey2))
   ```
 
 * Two point gesture on the specific ui object
@@ -632,6 +641,9 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 - Xiaocong He ([@xiaocong][])
 - Yuanyuan Zou ([@yuanyuan][])
 
+[@xiaocong]: https://github.com/xiaocong
+[@yuanyuan]: https://github.com/yuanyuanzou
+
 ## Issues
 
 If you have any suggestions, bug reports or annoyances please report them to our issue tracker at [github issues](https://github.com/xiaocong/uiautomator/issues).
@@ -641,9 +653,8 @@ If you have any suggestions, bug reports or annoyances please report them to our
 - Android [uiautomator][] works on Android 4.1+, so before using it, make sure your device is Android4.1+.
 - Some methods are only working on Android 4.2/4.3, so you'd better read detailed [java documentation of uiautomator](http://developer.android.com/tools/help/uiautomator/index.html) before using it.
 - The module uses [uiautomator-jsonrpc-server](https://github.com/xiaocong/android-uiautomator-jsonrpcserver) as its daemon to communicate with devices.
+- The module is only tested on python2.7/3.2/3.3/pypy.
 
 
 [uiautomator]: http://developer.android.com/tools/testing/testing_ui.html "Android ui testing"
 
- [@xiaocong]: https://github.com/xiaocong
- [@yuanyuan]: https://github.com/yuanyuanzou
