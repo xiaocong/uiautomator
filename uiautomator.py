@@ -290,11 +290,11 @@ class AutomatorServer(object):
 
     @property
     def local_port(self):
-        return int(os.environ["LOCAL_PORT"]) if "LOCAL_PORT" in os.environ else 9008
+        return int(os.environ.get("LOCAL_PORT", 9008))
 
     @property
     def device_port(self):
-        return int(os.environ["DEVICE_PORT"]) if "DEVICE_PORT" in os.environ else 9008
+        return int(os.environ.get("DEVICE_PORT", 9008))
 
     def start(self):
         files = self.download_and_push()
