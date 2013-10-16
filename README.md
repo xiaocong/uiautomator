@@ -22,9 +22,8 @@ d(text="Clock").click()
 
 ### Pre-requirements
 
-- Install [Android SDK](http://developer.android.com/sdk/index.html), and set $ANDROID_HOME environment to the correct path.
+- Install [Android SDK](http://developer.android.com/sdk/index.html), and set `ANDROID_HOME` environment to the correct path.
 - Enable ADB setting on device and connect your android device using usb with your PC.
-- Set $ANDROID_SERIAL environment in case of multiple android devices connected.
 
 ### import uiautomator
 
