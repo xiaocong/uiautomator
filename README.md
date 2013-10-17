@@ -645,7 +645,8 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 
 ## Issues
 
-If you have any suggestions, bug reports or annoyances please report them to our issue tracker at [github issues](https://github.com/xiaocong/uiautomator/issues).
+If you have any bug reports or annoyances please report them to our issue tracker at [github issues](https://github.com/xiaocong/uiautomator/issues).
+If you have any suggestions, new feature requirements or topics you want to discuss, please submit your topic at [ostio](http://ost.io/@xiaocong/uiautomator)
 
 ## Notes
 
