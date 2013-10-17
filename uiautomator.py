@@ -248,6 +248,21 @@ class Adb(object):
         return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
 
 
+_init_local_port = 9007
+def next_local_port():
+    def is_port_listening(port):
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = s.connect_ex(('127.0.0.1', port))
+        s.close()
+        return result == 0
+    global _init_local_port
+    _init_local_port = _init_local_port + 1 if _init_local_port < 32764 else 9008
+    while is_port_listening(_init_local_port):
+        _init_local_port += 1
+    return _init_local_port
+
+
 class AutomatorServer(object):
 
     """start and quit rpc server on device.
@@ -257,9 +272,10 @@ class AutomatorServer(object):
         "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/blob/release/dist/uiautomator-stub.jar?raw=true"
     }
 
-    def __init__(self, serial=None):
+    def __init__(self, serial=None, local_port=None):
         self.uiautomator_process = None
-        self.__jsonrpc_client = None
+        self.local_port = local_port if local_port else next_local_port()
+        self.device_port = 9008
         self.adb = Adb(serial=serial)
 
     def download_and_push(self):
@@ -280,21 +296,12 @@ class AutomatorServer(object):
     @property
     def jsonrpc(self):
         if not self.alive:  # start server if not
+            self.stop()
             self.start()
         return self.__jsonrpc()
 
     def __jsonrpc(self):
-        if not self.__jsonrpc_client:
-            self.__jsonrpc_client = JsonRPCClient(self.rpc_uri)
-        return self.__jsonrpc_client
-
-    @property
-    def local_port(self):
-        return int(os.environ.get("LOCAL_PORT", 9008))
-
-    @property
-    def device_port(self):
-        return int(os.environ.get("DEVICE_PORT", 9008))
+        return JsonRPCClient(self.rpc_uri)
 
     def start(self):
         files = self.download_and_push()
@@ -302,8 +309,6 @@ class AutomatorServer(object):
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
         self.uiautomator_process = self.adb.cmd(*cmd)
-        if self.adb.forward(self.local_port, self.device_port) != 0:
-            raise IOError("Error during start jsonrpc server!")
 
         timeout = 5
         while not self.alive and timeout > 0:
@@ -314,6 +319,8 @@ class AutomatorServer(object):
 
     def ping(self):
         try:
+            if self.adb.forward(self.local_port, self.device_port) != 0:
+                raise IOError("Error during start jsonrpc server!")
             return self.__jsonrpc().ping()
         except:
             return None
@@ -364,8 +371,8 @@ class AutomatorDevice(object):
         "height": "displayHeight"
     }
 
-    def __init__(self, serial=None):
-        self.server = AutomatorServer(serial=serial)
+    def __init__(self, serial=None, local_port=None):
+        self.server = AutomatorServer(serial=serial, local_port=local_port)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))

@@ -2,26 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, Mock, patch, call, mock_open
-import os
+from mock import MagicMock, patch, call, mock_open
 from uiautomator import AutomatorServer
 
 
 class TestAutomatorServer(unittest.TestCase):
 
     def test_local_port(self):
-        for port in range(9000, 9100):
-            with patch.dict('os.environ', {'LOCAL_PORT': str(port)}):
-                self.assertEqual(AutomatorServer().local_port, port)
-        with patch.dict('os.environ', {}, clear=True):
-            self.assertEqual(AutomatorServer().local_port, 9008)
+        self.assertEqual(AutomatorServer("1234", 9010).local_port, 9010)
 
     def test_device_port(self):
-        for port in range(9000, 9100):
-            with patch.dict('os.environ', {'DEVICE_PORT': str(port)}):
-                self.assertEqual(AutomatorServer().device_port, port)
-        with patch.dict('os.environ', {}, clear=True):
-            self.assertEqual(AutomatorServer().device_port, 9008)
+        self.assertEqual(AutomatorServer().device_port, 9008)
 
     def test_start_success(self):
         server = AutomatorServer()
@@ -30,22 +21,8 @@ class TestAutomatorServer(unittest.TestCase):
         server.ping = MagicMock()
         server.ping.return_value = "pong"
         server.adb = MagicMock()
-        server.adb.forward.return_value = 0
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            server.start()
-            server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
-            server.adb.forward.assert_called_once_with(9000, 9000)
-
-    def test_start_forward_error(self):
-        server = AutomatorServer()
-        server.download_and_push = MagicMock()
-        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
-        server.adb = MagicMock()
-        server.adb.forward.return_value = 1
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            with self.assertRaises(IOError):
-                server.start()
-            server.adb.forward.assert_called_once_with(9000, 9000)
+        server.start()
+        server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
 
     def test_start_error(self):
         server = AutomatorServer()
@@ -54,38 +31,32 @@ class TestAutomatorServer(unittest.TestCase):
         server.ping = MagicMock()
         server.ping.return_value = None
         server.adb = MagicMock()
-        server.adb.forward.return_value = 0
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            with patch("time.sleep"):
-                with self.assertRaises(IOError):
-                    server.start()
-            server.adb.forward.assert_called_once_with(9000, 9000)
+        with patch("time.sleep"):
+            with self.assertRaises(IOError):
+                server.start()
 
     def test_auto_start(self):
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
-                JsonRPCClient.ping.return_value = None
-                server = AutomatorServer()
-                server.start = MagicMock()
-                server.jsonrpc
-                JsonRPCClient.assert_called_once_with(server.rpc_uri)
-                server.start.assert_called_once_with()
-                server.jsonrpc  # second call will retrieve the stored obj
-                JsonRPCClient.assert_called_once_with(server.rpc_uri)
+        with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
+            JsonRPCClient.ping.return_value = None
+            server = AutomatorServer()
+            server.start = MagicMock()
+            server.stop = MagicMock()
+            server.jsonrpc
+            server.start.assert_called_once_with()
 
     def test_start_ping(self):
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
-                JsonRPCClient.return_value.ping.return_value = "pong"
-                server = AutomatorServer()
-                self.assertEqual(server.ping(), "pong")
+        with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
+            JsonRPCClient.return_value.ping.return_value = "pong"
+            server = AutomatorServer()
+            server.adb = MagicMock()
+            server.adb.forward.return_value = 0
+            self.assertEqual(server.ping(), "pong")
 
     def test_start_ping_none(self):
-        with patch.dict('os.environ', {'LOCAL_PORT': '9000', 'DEVICE_PORT': '9000'}):
-            with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
-                JsonRPCClient.return_value.ping.side_effect = Exception("error")
-                server = AutomatorServer()
-                self.assertEqual(server.ping(), None)
+        with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
+            JsonRPCClient.return_value.ping.side_effect = Exception("error")
+            server = AutomatorServer()
+            self.assertEqual(server.ping(), None)
 
 
 class TestAutomatorServer_Stop(unittest.TestCase):
