@@ -254,8 +254,7 @@ class TestDevice(unittest.TestCase):
 
 class TestDeviceWithSerial(unittest.TestCase):
 
-    def setUp(self):
-        self.device = AutomatorDevice("abcdefhijklmn")
-
     def test_serial(self):
-        self.assertEqual(self.device.server.adb.default_serial, "abcdefhijklmn")
+        with patch('uiautomator.AutomatorServer') as AutomatorServer:
+            device = AutomatorDevice("abcdefhijklmn")
+            AutomatorServer.assert_called_once_with(serial="abcdefhijklmn", local_port=None)

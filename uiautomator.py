@@ -247,6 +247,14 @@ class Adb(object):
         '''adb port forward. return 0 if success, else non-zero.'''
         return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
 
+    def forward_list(self):
+        '''adb forward --list'''
+        if os.name in ["posix"]:
+            lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+            return [line.strip().split() for line in lines]
+        else:
+            return []
+
 
 _init_local_port = 9007
 def next_local_port():
@@ -274,9 +282,20 @@ class AutomatorServer(object):
 
     def __init__(self, serial=None, local_port=None):
         self.uiautomator_process = None
-        self.local_port = local_port if local_port else next_local_port()
-        self.device_port = 9008
         self.adb = Adb(serial=serial)
+        self.device_port = 9008
+        if local_port:
+            self.local_port = local_port
+        else:
+            try: # first we will try to use the local port already adb forwarded
+                for s, lp, rp in self.adb.forward_list():
+                    if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
+                        self.local_port = int(lp[4:])
+                        break
+                else:
+                    self.local_port = next_local_port()
+            except:
+                self.local_port = next_local_port()
 
     def download_and_push(self):
         lib_path = os.path.join(tempfile.gettempdir(), "libs")

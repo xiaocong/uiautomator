@@ -8,8 +8,36 @@ from uiautomator import AutomatorServer
 
 class TestAutomatorServer(unittest.TestCase):
 
+    def setUp(self):
+        self.Adb_patch = patch('uiautomator.Adb')
+        self.Adb = self.Adb_patch.start()
+
+    def tearDown(self):
+        self.Adb.stop()
+
     def test_local_port(self):
         self.assertEqual(AutomatorServer("1234", 9010).local_port, 9010)
+        self.Adb.assert_called_once_with(serial="1234")
+
+    def test_local_port_forwarded(self):
+        self.Adb.return_value.forward_list.return_value = [
+            ("1234", "tcp:1001", "tcp:9009"),
+            ("1234", "tcp:1000", "tcp:9008")
+        ]
+        self.Adb.return_value.device_serial.return_value = "1234"
+        self.assertEqual(AutomatorServer("1234").local_port, 1000)
+
+    def test_local_port_scanning(self):
+        with patch('uiautomator.next_local_port') as next_local_port:
+            self.Adb.return_value.forward_list.return_value = []
+            next_local_port.return_value = 1234
+            self.assertEqual(AutomatorServer("abcd", None).local_port,
+                             next_local_port.return_value)
+
+            next_local_port.return_value = 14321
+            self.Adb.return_value.forward_list.return_value = Exception("error")
+            self.assertEqual(AutomatorServer("abcd", None).local_port,
+                             next_local_port.return_value)
 
     def test_device_port(self):
         self.assertEqual(AutomatorServer().device_port, 9008)
