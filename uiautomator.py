@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.15"
+__version__ = "0.1.16"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
