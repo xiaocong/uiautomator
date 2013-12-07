@@ -26,26 +26,18 @@ class TestJsonRPCMethod_call(unittest.TestCase):
         self.method = JsonRPCMethod(self.url, self.method_name, self.timeout)
         self.method.id = MagicMock()
         self.method.id.return_value = self.id
-        try:
-            import urllib2
-            self.urlopen_patch = patch('urllib2.urlopen')
-        except:
-            self.urlopen_patch = patch('urllib.request.urlopen')
-        finally:
-            self.urlopen = self.urlopen_patch.start()
-
-    def tearDown(self):
-        self.urlopen_patch.stop()
+        self.method.pool = MagicMock()
+        self.urlopen = self.method.pool.urlopen
 
     def test_normal_call(self):
         return_mock = self.urlopen.return_value
-        return_mock.getcode.return_value = 200
+        return_mock.status = 200
 
-        return_mock.read.return_value = b'{"result": "pong", "error": null, "id": "DKNCJDLDJJ"}'
+        return_mock.data = b'{"result": "pong", "error": null, "id": "DKNCJDLDJJ"}'
         self.assertEqual("pong", self.method())
         self.method.id.assert_called_once_with()
 
-        return_mock.read.return_value = b'{"result": "pong", "id": "JDLSFJLILJEMNC"}'
+        return_mock.data = b'{"result": "pong", "id": "JDLSFJLILJEMNC"}'
         self.assertEqual("pong", self.method())
         self.assertEqual("pong", self.method(1, 2, "str", {"a": 1}, ["1"]))
         self.assertEqual("pong", self.method(a=1, b=2))
@@ -53,18 +45,17 @@ class TestJsonRPCMethod_call(unittest.TestCase):
     def test_normal_call_error(self):
         return_mock = self.urlopen.return_value
 
-        return_mock.getcode.return_value = 500
+        return_mock.status = 500
         with self.assertRaises(Exception):
             self.method()
 
-        return_mock.getcode.return_value = 200
-        return_mock.read.return_value = b'{"result": "pong", "error": {"code": -513937, "message": "error message."}, "id": "fGasV62G"}'
+        return_mock.status = 200
+        return_mock.data = b'{"result": "pong", "error": {"code": -513937, "message": "error message."}, "id": "fGasV62G"}'
         with self.assertRaises(Exception):
             self.method()
-        return_mock.read.assert_called_with()
 
-        return_mock.getcode.return_value = 200
-        return_mock.read.return_value = b'{"result": null, "error": null, "id": "fGasV62G"}'
+        return_mock.status = 200
+        return_mock.data = b'{"result": null, "error": null, "id": "fGasV62G"}'
         with self.assertRaises(SyntaxError):
             self.method(1, 2, kwarg1="")
 

@@ -90,16 +90,12 @@ class TestAutomatorServer(unittest.TestCase):
 class TestAutomatorServer_Stop(unittest.TestCase):
 
     def setUp(self):
-        try:
-            import urllib2
-            self.urlopen_patch = patch('urllib2.urlopen')
-        except:
-            self.urlopen_patch = patch('urllib.request.urlopen')
-        finally:
-            self.urlopen = self.urlopen_patch.start()
+        self.pool_patch = patch('uiautomator.pool')
+        self.pool = self.pool_patch.start()
+        self.urlopen = self.pool.urlopen
 
     def tearDown(self):
-        self.urlopen_patch.stop()
+        self.pool_patch.stop()
 
     def test_download_and_push(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
