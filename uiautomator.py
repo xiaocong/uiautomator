@@ -17,7 +17,7 @@ try:
 except:
     pool = None
 
-__version__ = "0.1.17"
+__version__ = "0.1.18"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
