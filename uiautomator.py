@@ -17,7 +17,7 @@ try:
 except:
     pool = None
 
-__version__ = "0.1.17"
+__version__ = "0.1.18"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
@@ -336,11 +336,14 @@ class AutomatorServer(object):
 
     def ping(self):
         try:
-            if self.adb.forward(self.local_port, self.device_port) != 0:
-                raise IOError("Error during start jsonrpc server!")
             return self.__jsonrpc().ping()
         except:
-            return None
+            try:
+                if self.adb.forward(self.local_port, self.device_port) != 0:
+                    raise IOError("Error during start jsonrpc server!")
+                return self.__jsonrpc().ping()
+            except:
+                return None
 
     @property
     def alive(self):
