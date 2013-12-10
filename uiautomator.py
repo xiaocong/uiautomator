@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Python wrapper for Android uiautomator tool."""
+"""
+"""
 
 import os
 import subprocess
@@ -12,12 +13,15 @@ import json
 import hashlib
 
 try:
-    import urllib3
-    pool = urllib3.PoolManager(10)
-except:
-    pool = None
+    import urllib2
+except ImportError:
+    import urllib.request as urllib2
 
+<<<<<<< HEAD
 __version__ = "0.1.18"
+=======
+__version__ = "0.1.16"
+>>>>>>> parent of d4a26ed... use urllib3 instead of urllib2 to fix tcp connection delay in windows
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
@@ -57,7 +61,7 @@ def param_to_property(*props, **kwprops):
 class JsonRPCMethod(object):
 
     def __init__(self, url, method, timeout=30):
-        self.url, self.method, self.timeout, self.pool = url, method, timeout, pool
+        self.url, self.method, self.timeout = url, method, timeout
 
     def __call__(self, *args, **kwargs):
         if args and kwargs:
@@ -67,10 +71,13 @@ class JsonRPCMethod(object):
             data["params"] = args
         elif kwargs:
             data["params"] = kwargs
-        res = self.pool.urlopen("POST", self.url, headers={'Content-Type':'application/json'}, body=json.dumps(data).encode("utf-8"))
-        if res is None or res.status != 200:
+        req = urllib2.Request(self.url,
+                              json.dumps(data).encode("utf-8"),
+                              {"Content-type": "application/json"})
+        result = urllib2.urlopen(req, timeout=self.timeout)
+        if result is None or result.getcode() != 200:
             raise Exception("Error reponse from jsonrpc server.")
-        jsonresult = json.loads(res.data.decode("utf-8"))
+        jsonresult = json.loads(result.read().decode("utf-8"))
         if "error" in jsonresult and jsonresult["error"]:
             raise Exception("Error response. Error code: %d, Error message: %s" %
                             (jsonresult["error"]["code"], jsonresult["error"]["message"]))
@@ -278,7 +285,6 @@ class AutomatorServer(object):
     }
 
     def __init__(self, serial=None, local_port=None):
-        self.pool = pool
         self.uiautomator_process = None
         self.adb = Adb(serial=serial)
         self.device_port = 9008
@@ -308,7 +314,7 @@ class AutomatorServer(object):
 
     def download(self, filename, url):
         with open(filename, 'wb') as file:
-            file.write(self.pool.urlopen("GET", url).data)
+            file.write(urllib2.urlopen(url).read())
 
     @property
     def jsonrpc(self):
@@ -354,7 +360,7 @@ class AutomatorServer(object):
         '''Stop the rpc server.'''
         if self.uiautomator_process and self.uiautomator_process.poll() is None:
             try:
-                self.pool.urlopen("GET", self.stop_uri)
+                urllib2.urlopen(self.stop_uri)
                 self.uiautomator_process.wait()
             except:
                 self.uiautomator_process.kill()
