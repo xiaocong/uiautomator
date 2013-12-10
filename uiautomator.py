@@ -423,15 +423,13 @@ class AutomatorDevice(object):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
 
-    def dump(self, filename):
+    def dump(self, filename=None):
         '''dump device window and pull to local file.'''
-        device_file = self.server.jsonrpc.dumpWindowHierarchy(True, "dump.xml")
-        if not device_file:
-            return None
-        p = self.server.adb.cmd("pull", device_file, filename)
-        p.wait()
-        self.server.adb.cmd("shell", "rm", device_file).wait()
-        return filename if p.returncode is 0 else None
+        content = self.server.jsonrpc.dumpWindowHierarchy(True, None)
+        if filename:
+            with open(filename, "wt") as f:
+                f.write(content.encode("utf-8"))
+        return content
 
     def screenshot(self, filename, scale=1.0, quality=100):
         '''take screenshot.'''
