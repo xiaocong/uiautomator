@@ -13,7 +13,7 @@ import hashlib
 
 try:
     import urllib3
-    pool = urllib3.PoolManager()
+    pool = urllib3.PoolManager(10)
 except:
     pool = None
 
