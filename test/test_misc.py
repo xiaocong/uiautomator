@@ -3,6 +3,7 @@
 
 import unittest
 import uiautomator
+import os
 from mock import patch
 
 
@@ -41,3 +42,22 @@ class TestMisc(unittest.TestCase):
             socket.return_value.connect_ex.return_value = 1
             uiautomator._init_local_port = 32764
             self.assertEqual(uiautomator.next_local_port(), 9008)
+
+
+class TestMisc2(unittest.TestCase):
+
+    def setUp(self):
+        self.name = os.name
+        os.name = "nt"
+
+    def tearDown(self):
+        os.name = self.name
+
+    def test_urllib3_nt(self):
+        try:
+            from imp import reload
+        except:
+            pass
+        reload(uiautomator)
+        self.assertTrue("pool" in dir(uiautomator.JsonRPCMethod))
+        self.assertIsNotNone(uiautomator.JsonRPCMethod.pool)
