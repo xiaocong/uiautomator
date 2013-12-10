@@ -9,7 +9,7 @@ except ImportError:
     from distutils.core import setup
 
 
-requires = []
+requires = ["urllib3>=1.7.1"]
 
 setup(name='uiautomator',
       version=uiautomator.__version__,
@@ -21,7 +21,7 @@ setup(name='uiautomator',
       install_requires=requires,
       py_modules=['uiautomator'],
       scripts=['uiautomator.py'],
-      setup_requires=['nose>=1.0', 'mock>=1.0.1', 'coverage>=3.6'],
+      setup_requires=['nose>=1.0', 'mock>=1.0.1', 'coverage>=3.6'] + requires,
       license='MIT',
       platforms='any',
       classifiers=(

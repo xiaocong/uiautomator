@@ -4,6 +4,7 @@
 import unittest
 from mock import MagicMock, patch
 from uiautomator import JsonRPCMethod, JsonRPCClient
+import os
 
 
 class TestJsonRPCMethod_id(unittest.TestCase):
@@ -85,3 +86,41 @@ class TestJsonRPCClient(unittest.TestCase):
             JsonRPCMethod.return_value = {"width": 10, "height": 20}
             self.assertEqual(client.info, {"width": 10, "height": 20})
             JsonRPCMethod.assert_called_with(self.url, "info", timeout=self.timeout)
+
+
+class TestJsonRPCMethod_call_on_windows(unittest.TestCase):
+
+    def setUp(self):
+        self.os_name = os.name
+        os.name = "nt"
+        self.url = "http://localhost/jsonrpc"
+        self.timeout = 20
+        self.method_name = "ping"
+        self.id = "fGasV62G"
+        self.method = JsonRPCMethod(self.url, self.method_name, self.timeout)
+        self.method.pool = MagicMock()
+        self.method.id = MagicMock()
+        self.method.id.return_value = self.id
+
+    def tearDown(self):
+        os.name = self.os_name
+
+    def test_normal_call(self):
+        urlopen = self.method.pool.urlopen
+        urlopen.return_value.status = 200
+
+        urlopen.return_value.data = b'{"result": "pong", "error": null, "id": "DKNCJDLDJJ"}'
+        self.assertEqual("pong", self.method())
+        self.method.id.assert_called_once_with()
+
+        urlopen.return_value.data = b'{"result": "pong", "id": "JDLSFJLILJEMNC"}'
+        self.assertEqual("pong", self.method())
+        self.assertEqual("pong", self.method(1, 2, "str", {"a": 1}, ["1"]))
+        self.assertEqual("pong", self.method(a=1, b=2))
+
+    def test_normal_call_error(self):
+        urlopen = self.method.pool.urlopen
+        urlopen.return_value.status = 500
+
+        with self.assertRaises(Exception):
+            self.method()

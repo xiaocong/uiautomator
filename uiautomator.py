@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-"""
+"""Python wrapper for Android uiautomator tool."""
 
 import os
 import subprocess
@@ -17,11 +16,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-<<<<<<< HEAD
-__version__ = "0.1.18"
-=======
-__version__ = "0.1.16"
->>>>>>> parent of d4a26ed... use urllib3 instead of urllib2 to fix tcp connection delay in windows
+__version__ = "0.1.19"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
@@ -60,6 +55,13 @@ def param_to_property(*props, **kwprops):
 
 class JsonRPCMethod(object):
 
+    if os.name == "nt":
+        try:
+            import urllib3
+            pool = urllib3.PoolManager()
+        except:
+            pool = None
+
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
 
@@ -71,13 +73,23 @@ class JsonRPCMethod(object):
             data["params"] = args
         elif kwargs:
             data["params"] = kwargs
-        req = urllib2.Request(self.url,
-                              json.dumps(data).encode("utf-8"),
-                              {"Content-type": "application/json"})
-        result = urllib2.urlopen(req, timeout=self.timeout)
-        if result is None or result.getcode() != 200:
-            raise Exception("Error reponse from jsonrpc server.")
-        jsonresult = json.loads(result.read().decode("utf-8"))
+        if os.name == "nt":
+            res = self.pool.urlopen("POST",
+                                    self.url,
+                                    headers={"Content-Type": "application/json"},
+                                    body=json.dumps(data).encode("utf-8"),
+                                    timeout=self.timeout)
+            if res is None or res.status != 200:
+                raise Exception("Error reponse from jsonrpc server.")
+            jsonresult = json.loads(res.data.decode("utf-8"))
+        else:
+            req = urllib2.Request(self.url,
+                                  json.dumps(data).encode("utf-8"),
+                                  {"Content-type": "application/json"})
+            result = urllib2.urlopen(req, timeout=self.timeout)
+            if result is None or result.getcode() != 200:
+                raise Exception("Error reponse from jsonrpc server.")
+            jsonresult = json.loads(result.read().decode("utf-8"))
         if "error" in jsonresult and jsonresult["error"]:
             raise Exception("Error response. Error code: %d, Error message: %s" %
                             (jsonresult["error"]["code"], jsonresult["error"]["message"]))
