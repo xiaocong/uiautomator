@@ -53,14 +53,24 @@ def param_to_property(*props, **kwprops):
     return Wrapper
 
 
+class _ConnectionPool(object):
+
+    def __init__(self):
+        self.count = 0
+        self.pool = None
+
+    def __get__(self, obj, cls):
+        if self.count == 0 or self.pool == None:
+            # reset connection pool to workaround NanoHttpd overflow exception
+            import urllib3
+            self.pool = urllib3.PoolManager(1)
+        self.count = (self.count + 1) % 32
+        return self.pool
+
+
 class JsonRPCMethod(object):
 
-    if os.name == "nt":
-        try:
-            import urllib3
-            pool = urllib3.PoolManager()
-        except:
-            pool = None
+    pool = _ConnectionPool()
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
