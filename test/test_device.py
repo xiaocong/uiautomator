@@ -39,15 +39,9 @@ class TestDevice(unittest.TestCase):
 
     def test_dump(self):
         self.device.server.jsonrpc.dumpWindowHierarchy = MagicMock()
-        self.device.server.jsonrpc.dumpWindowHierarchy.return_value = "1.xml"
-        self.device.server.adb.cmd = cmd = MagicMock()
-        cmd.return_value.returncode = 0
-        self.assertEqual(self.device.dump("test.xml"), "test.xml")
-        self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, "dump.xml")
-        self.assertEqual(cmd.call_args_list, [call("pull", "1.xml", "test.xml"), call("shell", "rm", "1.xml")])
-
-        self.device.server.jsonrpc.dumpWindowHierarchy.return_value = None
-        self.assertEqual(self.device.dump("test.xml"), None)
+        self.device.server.jsonrpc.dumpWindowHierarchy.return_value = "<?xml>"
+        self.assertEqual(self.device.dump("/tmp/test.xml"), "<?xml>")
+        self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, None)
 
     def test_screenshot(self):
         self.device.server.jsonrpc.takeScreenshot = MagicMock()
