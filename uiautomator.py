@@ -16,7 +16,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.19"
+__version__ = "0.1.20"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
@@ -455,7 +455,7 @@ class AutomatorDevice(object):
         '''dump device window and pull to local file.'''
         content = self.server.jsonrpc.dumpWindowHierarchy(True, None)
         if filename:
-            with open(filename, "wt") as f:
+            with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
         return content
 
