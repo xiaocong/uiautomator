@@ -205,6 +205,8 @@ This part show the normal actions of the device through some simple examples.
   ```python
   # dump the widown hierarchy and save to local file "hierarchy.xml"
   d.dump("hierarchy.xml")
+  # or get the dumped content(unicode) from return.
+  xml = d.dump()
   ```
 
 * Open notification or quick settings
