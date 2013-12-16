@@ -302,8 +302,8 @@ class AutomatorServer(object):
     """start and quit rpc server on device.
     """
     __jar_files = {
-        "bundle.jar": 'https://github.com/xiaocong/android-uiautomator-jsonrpcserver/blob/release/dist/bundle.jar?raw=true',
-        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/blob/release/dist/uiautomator-stub.jar?raw=true"
+        "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1/bundle.jar",
+        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1/uiautomator-stub.jar"
     }
 
     def __init__(self, serial=None, local_port=None):
