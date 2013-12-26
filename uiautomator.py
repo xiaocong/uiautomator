@@ -346,7 +346,7 @@ class AutomatorServer(object):
         return self.__jsonrpc()
 
     def __jsonrpc(self):
-        return JsonRPCClient(self.rpc_uri)
+        return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
     def start(self):
         files = self.download_and_push()
