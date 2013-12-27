@@ -16,7 +16,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.22"
+__version__ = "0.1.23"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector"]
 
@@ -959,7 +959,7 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
     def up(self, **kwargs):
         def above(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
-            return rect1["top"] - rect2["bottom"] if left < right else -1 
+            return rect1["top"] - rect2["bottom"] if left < right else -1
         return self.__view_beside(above, **kwargs)
 
     def down(self, **kwargs):
