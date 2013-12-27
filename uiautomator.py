@@ -93,13 +93,20 @@ class JsonRPCMethod(object):
                 raise Exception("Error reponse from jsonrpc server.")
             jsonresult = json.loads(res.data.decode("utf-8"))
         else:
-            req = urllib2.Request(self.url,
-                                  json.dumps(data).encode("utf-8"),
-                                  {"Content-type": "application/json"})
-            result = urllib2.urlopen(req, timeout=self.timeout)
-            if result is None or result.getcode() != 200:
-                raise Exception("Error reponse from jsonrpc server.")
-            jsonresult = json.loads(result.read().decode("utf-8"))
+            result = None
+            try:
+                req = urllib2.Request(self.url,
+                                      json.dumps(data).encode("utf-8"),
+                                      {"Content-type": "application/json"})
+                result = urllib2.urlopen(req, timeout=self.timeout)
+                if result is None or result.getcode() != 200:
+                    raise Exception("Error reponse from jsonrpc server.")
+                jsonresult = json.loads(result.read().decode("utf-8"))
+            except:
+                raise
+            finally:
+                if result is not None:
+                    result.close()
         if "error" in jsonresult and jsonresult["error"]:
             raise Exception("Error response. Error code: %d, Error message: %s" %
                             (jsonresult["error"]["code"], jsonresult["error"]["message"]))
@@ -336,7 +343,15 @@ class AutomatorServer(object):
 
     def download(self, filename, url):
         with open(filename, 'wb') as file:
-            file.write(urllib2.urlopen(url).read())
+            res = None
+            try:
+                res = urllib2.urlopen(url)
+                file.write(res.read())
+            except:
+                raise
+            finally:
+                if res is not None:
+                    res.close()
 
     @property
     def jsonrpc(self):
@@ -381,12 +396,15 @@ class AutomatorServer(object):
     def stop(self):
         '''Stop the rpc server.'''
         if self.uiautomator_process and self.uiautomator_process.poll() is None:
+            res = None
             try:
-                urllib2.urlopen(self.stop_uri)
+                res = urllib2.urlopen(self.stop_uri)
                 self.uiautomator_process.wait()
             except:
                 self.uiautomator_process.kill()
             finally:
+                if res is not None:
+                    res.close()
                 self.uiautomator_process = None
         try:
             out = self.adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
