@@ -3,7 +3,7 @@
 
 import unittest
 from mock import MagicMock, patch, call, mock_open
-from uiautomator import AutomatorServer
+from uiautomator import AutomatorServer, JsonRPCError
 
 
 class TestAutomatorServer(unittest.TestCase):
@@ -64,13 +64,43 @@ class TestAutomatorServer(unittest.TestCase):
                 server.start()
 
     def test_auto_start(self):
-        with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
-            JsonRPCClient.ping.return_value = None
+        try:
+            import urllib2
+        except ImportError:
+            import urllib.request as urllib2
+        with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
+            returns = [urllib2.URLError("error"), "ok"]
+            def side_effect():
+                result = returns.pop(0)
+                if isinstance(result, Exception):
+                    raise result
+                return result
+            JsonRPCMethod.return_value.side_effect = side_effect
             server = AutomatorServer()
             server.start = MagicMock()
             server.stop = MagicMock()
-            server.jsonrpc
+            self.assertEqual("ok", server.jsonrpc.any_method())
             server.start.assert_called_once_with()
+        with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
+            returns = [JsonRPCError(-32000-1, "error msg"), "ok"]
+            def side_effect():
+                result = returns.pop(0)
+                if isinstance(result, Exception):
+                    raise result
+                return result
+            JsonRPCMethod.return_value.side_effect = side_effect
+            server = AutomatorServer()
+            server.start = MagicMock()
+            server.stop = MagicMock()
+            self.assertEqual("ok", server.jsonrpc.any_method())
+            server.start.assert_called_once_with()
+        with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
+            JsonRPCMethod.return_value.side_effect = JsonRPCError(-32000-2, "error msg")
+            server = AutomatorServer()
+            server.start = MagicMock()
+            server.stop = MagicMock()
+            with self.assertRaises(JsonRPCError):
+                server.jsonrpc.any_method()
 
     def test_start_ping(self):
         with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
@@ -153,3 +183,13 @@ class TestAutomatorServer_Stop(unittest.TestCase):
             server.stop()
             self.assertEqual(server.adb.cmd.call_args_list,
                              [call("shell", "ps", "-C", "uiautomator"), call("shell", "kill", "-9", "372")])
+
+
+class TestJsonRPCError(unittest.TestCase):
+
+    def testJsonRPCError(self):
+        e = JsonRPCError(200, "error")
+        self.assertEqual(200, e.code)
+        self.assertTrue(len(str(e)) > 0)
+        e = JsonRPCError("200", "error")
+        self.assertEqual(200, e.code)

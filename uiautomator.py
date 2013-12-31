@@ -10,15 +10,16 @@ import itertools
 import tempfile
 import json
 import hashlib
+import socket
 
 try:
     import urllib2
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.23"
+__version__ = "0.1.24"
 __author__ = "Xiaocong He"
-__all__ = ["device", "Device", "rect", "point", "Selector"]
+__all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
 
 def param_to_property(*props, **kwprops):
@@ -68,6 +69,15 @@ class _ConnectionPool(object):
         return self.pool
 
 
+class JsonRPCError(Exception):
+
+    def __init__(self, code, message):
+        self.code = int(code)
+        self.message = message
+
+    def __str__(self):
+        return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
+
 class JsonRPCMethod(object):
 
     pool = _ConnectionPool()
@@ -89,8 +99,6 @@ class JsonRPCMethod(object):
                                     headers={"Content-Type": "application/json"},
                                     body=json.dumps(data).encode("utf-8"),
                                     timeout=self.timeout)
-            if res is None or res.status != 200:
-                raise Exception("Error reponse from jsonrpc server.")
             jsonresult = json.loads(res.data.decode("utf-8"))
         else:
             result = None
@@ -99,8 +107,6 @@ class JsonRPCMethod(object):
                                       json.dumps(data).encode("utf-8"),
                                       {"Content-type": "application/json"})
                 result = urllib2.urlopen(req, timeout=self.timeout)
-                if result is None or result.getcode() != 200:
-                    raise Exception("Error reponse from jsonrpc server.")
                 jsonresult = json.loads(result.read().decode("utf-8"))
             except:
                 raise
@@ -108,8 +114,7 @@ class JsonRPCMethod(object):
                 if result is not None:
                     result.close()
         if "error" in jsonresult and jsonresult["error"]:
-            raise Exception("Error response. Error code: %d, Error message: %s" %
-                            (jsonresult["error"]["code"], jsonresult["error"]["message"]))
+            raise JsonRPCError(jsonresult["error"]["code"], jsonresult["error"]["message"])
         return jsonresult["result"]
 
     def id(self):
@@ -120,12 +125,13 @@ class JsonRPCMethod(object):
 
 class JsonRPCClient(object):
 
-    def __init__(self, url, timeout=30):
+    def __init__(self, url, timeout=30, method_class=JsonRPCMethod):
         self.url = url
         self.timeout = timeout
+        self.method_class = method_class
 
     def __getattr__(self, method):
-        return JsonRPCMethod(self.url, method, timeout=self.timeout)
+        return self.method_class(self.url, method, timeout=self.timeout)
 
 
 class Selector(dict):
@@ -355,10 +361,28 @@ class AutomatorServer(object):
 
     @property
     def jsonrpc(self):
-        if not self.alive:  # start server if not
-            self.stop()
-            self.start()
-        return self.__jsonrpc()
+        server = self
+        ERROR_CODE_BASE = -32000
+
+        def _JsonRPCMethod(url, method, timeout):
+            _method_obj = JsonRPCMethod(url, method, timeout)
+            def wrapper(*args, **kwargs):
+                try:
+                    return _method_obj(*args, **kwargs)
+                except (urllib2.URLError, socket.error) as e:
+                    server.stop()
+                    server.start()
+                    return _method_obj(*args, **kwargs)
+                except JsonRPCError as e:
+                    if e.code >= ERROR_CODE_BASE - 1:
+                        server.stop()
+                        server.start()
+                        return _method_obj(*args, **kwargs)
+                    else:
+                        raise e
+            return wrapper
+
+        return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
 
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
@@ -369,6 +393,7 @@ class AutomatorServer(object):
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
         self.uiautomator_process = self.adb.cmd(*cmd)
+        self.adb.forward(self.local_port, self.device_port)
 
         timeout = 5
         while not self.alive and timeout > 0:
@@ -381,12 +406,7 @@ class AutomatorServer(object):
         try:
             return self.__jsonrpc().ping()
         except:
-            try:
-                if self.adb.forward(self.local_port, self.device_port) != 0:
-                    raise IOError("Error during start jsonrpc server!")
-                return self.__jsonrpc().ping()
-            except:
-                return None
+            return None
 
     @property
     def alive(self):

@@ -78,7 +78,7 @@ class TestJsonRPCClient(unittest.TestCase):
 
     def test_jsonrpc(self):
         with patch('uiautomator.JsonRPCMethod') as JsonRPCMethod:
-            client = JsonRPCClient(self.url, self.timeout)
+            client = JsonRPCClient(self.url, self.timeout, JsonRPCMethod)
             JsonRPCMethod.return_value = "Ok"
             self.assertEqual(client.ping, "Ok")
             JsonRPCMethod.assert_called_once_with(self.url, "ping", timeout=self.timeout)
