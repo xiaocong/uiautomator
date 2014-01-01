@@ -378,8 +378,7 @@ class AutomatorServer(object):
                         server.stop()
                         server.start()
                         return _method_obj(*args, **kwargs)
-                    else:
-                        raise e
+                    raise
             return wrapper
 
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
