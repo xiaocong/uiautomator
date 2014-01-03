@@ -17,7 +17,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.24"
+__version__ = "0.1.25"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -367,9 +367,10 @@ class AutomatorServer(object):
         def _JsonRPCMethod(url, method, timeout):
             _method_obj = JsonRPCMethod(url, method, timeout)
             def wrapper(*args, **kwargs):
+                import urllib3
                 try:
                     return _method_obj(*args, **kwargs)
-                except (urllib2.URLError, socket.error) as e:
+                except (urllib2.URLError, socket.error, urllib3.exceptions.MaxRetryError) as e:
                     server.stop()
                     server.start()
                     return _method_obj(*args, **kwargs)
@@ -378,8 +379,7 @@ class AutomatorServer(object):
                         server.stop()
                         server.start()
                         return _method_obj(*args, **kwargs)
-                    else:
-                        raise e
+                    raise
             return wrapper
 
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
