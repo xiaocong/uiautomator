@@ -108,8 +108,6 @@ class JsonRPCMethod(object):
                                       {"Content-type": "application/json"})
                 result = urllib2.urlopen(req, timeout=self.timeout)
                 jsonresult = json.loads(result.read().decode("utf-8"))
-            except:
-                raise
             finally:
                 if result is not None:
                     result.close()
@@ -353,8 +351,6 @@ class AutomatorServer(object):
             try:
                 res = urllib2.urlopen(url)
                 file.write(res.read())
-            except:
-                raise
             finally:
                 if res is not None:
                     res.close()
