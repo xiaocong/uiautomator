@@ -11,6 +11,7 @@ import tempfile
 import json
 import hashlib
 import socket
+import urllib3
 
 try:
     import urllib2
@@ -63,7 +64,6 @@ class _ConnectionPool(object):
     def __get__(self, obj, cls):
         if self.count == 0 or self.pool == None:
             # reset connection pool to workaround NanoHttpd overflow exception
-            import urllib3
             self.pool = urllib3.PoolManager(1)
         self.count = (self.count + 1) % 32
         return self.pool
@@ -369,7 +369,7 @@ class AutomatorServer(object):
             def wrapper(*args, **kwargs):
                 try:
                     return _method_obj(*args, **kwargs)
-                except (urllib2.URLError, socket.error) as e:
+                except (urllib2.URLError, socket.error, urllib3.exceptions.MaxRetryError) as e:
                     server.stop()
                     server.start()
                     return _method_obj(*args, **kwargs)
