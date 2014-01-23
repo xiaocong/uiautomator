@@ -149,9 +149,12 @@ class TestAdb(unittest.TestCase):
 
     def test_forward_list(self):
         adb = Adb()
-        os.name = 'posix'
+        adb.version = MagicMock()
+        adb.version.return_value = ['1.0.31', '1', '0', '31']
         adb.raw_cmd = MagicMock()
         adb.raw_cmd.return_value.communicate.return_value = (b"014E05DE0F02000E    tcp:9008    tcp:9008\r\n489328DKFL7DF    tcp:9008    tcp:9008", b"")
         self.assertEqual(adb.forward_list(), [['014E05DE0F02000E', 'tcp:9008', 'tcp:9008'], ['489328DKFL7DF', 'tcp:9008', 'tcp:9008']])
-        os.name = 'nt'
-        self.assertEqual(adb.forward_list(), [])
+
+        adb.version.return_value = ['1.0.29', '1', '0', '29']
+        with self.assertRaises(EnvironmentError):
+            adb.forward_list()

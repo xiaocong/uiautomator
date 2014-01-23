@@ -11,6 +11,7 @@ import tempfile
 import json
 import hashlib
 import socket
+import re
 
 try:
     import urllib2
@@ -288,11 +289,16 @@ class Adb(object):
 
     def forward_list(self):
         '''adb forward --list'''
-        if os.name in ["posix"]:
-            lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
-            return [line.strip().split() for line in lines]
-        else:
-            return []
+        version = self.version()
+        if int(version[1]) <= 1 and int(version[2]) <= 0 and int(version[3]) < 31:
+            raise EnvironmentError("Low adb version.")
+        lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+        return [line.strip().split() for line in lines]
+
+    def version(self):
+        '''adb version'''
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
+        return [match.group(i) for i in range(4)]
 
 
 _init_local_port = 9007
