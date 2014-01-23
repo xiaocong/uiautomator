@@ -11,13 +11,14 @@ import tempfile
 import json
 import hashlib
 import socket
+import re
 
 try:
     import urllib2
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.25"
+__version__ = "0.1.26"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -64,6 +65,8 @@ class _ConnectionPool(object):
         if self.count == 0 or self.pool == None:
             # reset connection pool to workaround NanoHttpd overflow exception
             import urllib3
+            if self.pool is not None:
+                self.pool.clear()
             self.pool = urllib3.PoolManager(1)
         self.count = (self.count + 1) % 32
         return self.pool
@@ -108,8 +111,6 @@ class JsonRPCMethod(object):
                                       {"Content-type": "application/json"})
                 result = urllib2.urlopen(req, timeout=self.timeout)
                 jsonresult = json.loads(result.read().decode("utf-8"))
-            except:
-                raise
             finally:
                 if result is not None:
                     result.close()
@@ -288,11 +289,16 @@ class Adb(object):
 
     def forward_list(self):
         '''adb forward --list'''
-        if os.name in ["posix"]:
-            lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
-            return [line.strip().split() for line in lines]
-        else:
-            return []
+        version = self.version()
+        if int(version[1]) <= 1 and int(version[2]) <= 0 and int(version[3]) < 31:
+            raise EnvironmentError("Low adb version.")
+        lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
+        return [line.strip().split() for line in lines]
+
+    def version(self):
+        '''adb version'''
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
+        return [match.group(i) for i in range(4)]
 
 
 _init_local_port = 9007
@@ -353,8 +359,6 @@ class AutomatorServer(object):
             try:
                 res = urllib2.urlopen(url)
                 file.write(res.read())
-            except:
-                raise
             finally:
                 if res is not None:
                     res.close()
@@ -370,7 +374,7 @@ class AutomatorServer(object):
                 import urllib3
                 try:
                     return _method_obj(*args, **kwargs)
-                except (urllib2.URLError, socket.error, urllib3.exceptions.MaxRetryError) as e:
+                except (urllib2.URLError, socket.error, urllib3.exceptions.HTTPError) as e:
                     server.stop()
                     server.start()
                     return _method_obj(*args, **kwargs)

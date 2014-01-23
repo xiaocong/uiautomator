@@ -647,7 +647,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 
 ## Issues & Discussion
 
-If you have any bug reports or annoyances please report them to our issue tracker at [github issues](https://github.com/xiaocong/uiautomator/issues).
+If you have any bug reports or annoyances please report them to our issue tracker at [github issues][].
 
 If you have any suggestions, new feature requirements or topics you want to discuss, please submit your topic at [ostio](http://ost.io/@xiaocong/uiautomator).
 
@@ -658,6 +658,35 @@ If you have any suggestions, new feature requirements or topics you want to disc
 - The module uses [uiautomator-jsonrpc-server](https://github.com/xiaocong/android-uiautomator-jsonrpcserver) as its daemon to communicate with devices.
 - The module is only tested on python2.7/3.2/3.3/pypy.
 
+## FAQ
+
+- Could not start JSONRPC server: `raise IOError("RPC server not started!")`
+
+    It may be caused by network, device, or environment. So when you meet the issue, please follow below steps and try to manually start the JSONRPC server.
+
+    1. Download jar files from [uiautomator jsonrpc server](https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases).
+
+    2. Adb push the downloaded jar files to `/data/local/tmp/`
+
+    3. Start jsonrpc server via command:
+
+            adb shell uiautomator runtest bundle.jar uiautomator-stub.jar -c com.github.uiautomatorstub.Stub
+
+    4. Adb forward local port to device port:
+
+            adb forward tcp:9008 tcp:9008
+
+    5. Check if jsonrpc server is ok:
+
+            curl -d '{"jsonrpc":"2.0","method":"deviceInfo","id":1}' localhost:9008/jsonrpc/0
+
+        If you see message like `{"jsonrpc":"2.0","id":1,"result":{"currentPackageName":"android","displayHeight":1280,"displayRotation":0,"displaySizeDpX":0,"displaySizeDpY":0,"displayWidth":720,"productName":"falcon","sdkInt":17,"naturalOrientation":true}}`, it means the server is up.
+
+    If you can manually start the jsonrpc server, but your script always meets `IOError("RPC server not started!")`, please submit an issue at [github issues][].
+
+## License
+
+MIT
 
 [uiautomator]: http://developer.android.com/tools/testing/testing_ui.html "Android ui testing"
-
+[github issues]: https://github.com/xiaocong/uiautomator/issues
