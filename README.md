@@ -684,6 +684,10 @@ If you have any suggestions, new feature requirements or topics you want to disc
 
     If you can manually start the jsonrpc server, but your script always meets `IOError("RPC server not started!")`, please submit an issue at [github issues][].
 
+- Error `httplib.BadStatusLine: ''`
+
+    JsonRPC server needs to access temp directory on device, but on some low tier devices, it may meet error during accessing temp files without SD-CARD attached. So if you met the error, please insert a SD-CARD and then try again.
+
 ## License
 
 MIT
