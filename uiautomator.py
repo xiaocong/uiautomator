@@ -18,7 +18,7 @@ try:
 except ImportError:
     import urllib.request as urllib2
 
-__version__ = "0.1.26"
+__version__ = "0.1.27"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -321,8 +321,8 @@ class AutomatorServer(object):
     """start and quit rpc server on device.
     """
     __jar_files = {
-        "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.2/bundle.jar",
-        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.2/uiautomator-stub.jar"
+        "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/bundle.jar",
+        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/uiautomator-stub.jar"
     }
 
     def __init__(self, serial=None, local_port=None):
