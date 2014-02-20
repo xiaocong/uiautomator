@@ -6,8 +6,9 @@ python:
   - "pypy"
 # command to install dependencies
 install:
-  - "pip install -r requirements.txt --use-mirrors"
   - "pip install coveralls --use-mirrors"
+  - "pip install nose --use-mirrors"
+  - "pip install mock --use-mirrors"
 # command to run tests
 script:
 #  - "python setup.py nosetests --cover-package=uiautomator --with-coverage --cover-erase"
