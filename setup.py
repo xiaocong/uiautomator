@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import uiautomator
+import multiprocessing
 
 try:
     from setuptools import setup
@@ -9,7 +10,14 @@ except ImportError:
     from distutils.core import setup
 
 
-requires = ["urllib3>=1.7.1"]
+requires = [
+    "urllib3>=1.7.1"
+    ]
+test_requires = [
+    'nose>=1.0',
+    'mock>=1.0.1',
+    'coverage>=3.6'
+    ]
 
 setup(name='uiautomator',
       version=uiautomator.__version__,
@@ -19,9 +27,10 @@ setup(name='uiautomator',
       author_email='xiaocong@gmail.com',
       url='https://github.com/xiaocong/uiautomator',
       install_requires=requires,
+      tests_require=test_requires,
+      test_suite="nose.collector",
       py_modules=['uiautomator'],
       scripts=['uiautomator.py'],
-      setup_requires=['nose>=1.0', 'mock>=1.0.1', 'coverage>=3.6'] + requires,
       license='MIT',
       platforms='any',
       classifiers=(

@@ -17,6 +17,8 @@ try:
     import urllib2
 except ImportError:
     import urllib.request as urllib2
+if os.name == 'nt':
+    import urllib3
 
 __version__ = "0.1.27"
 __author__ = "Xiaocong He"
@@ -55,23 +57,6 @@ def param_to_property(*props, **kwprops):
     return Wrapper
 
 
-class _ConnectionPool(object):
-
-    def __init__(self):
-        self.count = 0
-        self.pool = None
-
-    def __get__(self, obj, cls):
-        if self.count == 0 or self.pool == None:
-            # reset connection pool to workaround NanoHttpd overflow exception
-            import urllib3
-            if self.pool is not None:
-                self.pool.clear()
-            self.pool = urllib3.PoolManager(1)
-        self.count = (self.count + 1) % 32
-        return self.pool
-
-
 class JsonRPCError(Exception):
 
     def __init__(self, code, message):
@@ -83,7 +68,8 @@ class JsonRPCError(Exception):
 
 class JsonRPCMethod(object):
 
-    pool = _ConnectionPool()
+    if os.name == 'nt':
+        pool = urllib3.PoolManager()
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
@@ -371,10 +357,10 @@ class AutomatorServer(object):
         def _JsonRPCMethod(url, method, timeout):
             _method_obj = JsonRPCMethod(url, method, timeout)
             def wrapper(*args, **kwargs):
-                import urllib3
+                URLError = urllib3.exceptions.HTTPError if os.name == "nt" else urllib2.URLError
                 try:
                     return _method_obj(*args, **kwargs)
-                except (urllib2.URLError, socket.error, urllib3.exceptions.HTTPError) as e:
+                except (URLError, socket.error) as e:
                     server.stop()
                     server.start()
                     return _method_obj(*args, **kwargs)
