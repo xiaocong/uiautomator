@@ -1145,7 +1145,7 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
             return self
         else:
             self.nodes = [self.nodes[index]]
-            return AutomatorDeviceXMLObject(self.device, selector, self.nodes)
+            return AutomatorDeviceXMLObject(self.device, self.selector, self.nodes)
 
     def rootxml(self):
         ''' return the root nodes'''
@@ -1207,11 +1207,11 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
                     em_bounds = elist.get('bounds')
                     del elist.attrib['bounds']
                     if cmp(elist.items(),ex_node.items()) == 0:
-                        ex_node.set('instance', i)
                         i = i + 1
                 else:
                     ex_node.set('instance', i)
                     i = i + 1
+                    break
                 elist.set('bounds',em_bounds)
             ex_node.set('bounds',n_bounds)
 
@@ -1294,17 +1294,6 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
     def count(self):
         exsit_count = len(self.nodes)
         return exsit_count
-
-    # @property
-    # def click(self):
-    #     def _click():
-    #         print self.info
-    #         print self.nodes[0].items()
-    #         object_point = self.bounds_data_split(self.nodes[0].get('bounds'))
-    #         x = (object_point['right']-object_point['left'])/2 +object_point['left']
-    #         y = (object_point['bottom']-object_point['top'])/2 +object_point['top']
-    #         return self.device.click(x,y)
-    #     return _click
 
     def view_beside(self, onsideof, **kwargs):
         origin_bounds = self.bounds_data_split(self.nodes[0].get('bounds'))
