@@ -12,6 +12,7 @@ import json
 import hashlib
 import socket
 import re
+import xml.etree.ElementTree as etree
 
 try:
     import urllib2
@@ -454,7 +455,8 @@ class AutomatorDevice(object):
         self.server = AutomatorServer(serial=serial, local_port=local_port)
 
     def __call__(self, **kwargs):
-        return AutomatorDeviceObject(self, Selector(**kwargs))
+        # return AutomatorDeviceObject(self, Selector(**kwargs))
+        return AutomatorDeviceXMLObject(self, Selector(**kwargs))
 
     def __getattr__(self, attr):
         '''alias of fields in info property.'''
@@ -488,7 +490,7 @@ class AutomatorDevice(object):
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
-        return content
+        return content.encode("utf-8")
 
     def screenshot(self, filename, scale=1.0, quality=100):
         '''take screenshot.'''
@@ -737,6 +739,7 @@ class AutomatorDeviceUiObject(object):
         d(text="John").click.bottomright() # click on the bottomright of the ui object
         '''
         @param_to_property(action=["tl", "topleft", "br", "bottomright", "wait"])
+
         def _click(action=None, timeout=3000):
             if action is None:
                 return self.jsonrpc.click(self.selector)
@@ -958,27 +961,27 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
         def onrightof(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
             return rect2["left"] - rect1["right"] if top < bottom else -1
-        return self.__view_beside(onrightof, **kwargs)
+        return self.view_beside(onrightof, **kwargs)
 
     def left(self, **kwargs):
         def onleftof(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
             return rect1["left"] - rect2["right"] if top < bottom else -1
-        return self.__view_beside(onleftof, **kwargs)
+        return self.view_beside(onleftof, **kwargs)
 
     def up(self, **kwargs):
         def above(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
             return rect1["top"] - rect2["bottom"] if left < right else -1
-        return self.__view_beside(above, **kwargs)
+        return self.view_beside(above, **kwargs)
 
     def down(self, **kwargs):
         def under(rect1, rect2):
             left, top, right, bottom = intersect(rect1, rect2)
             return rect2["top"] - rect1["bottom"] if left < right else -1
-        return self.__view_beside(under, **kwargs)
+        return self.view_beside(under, **kwargs)
 
-    def __view_beside(self, onsideof, **kwargs):
+    def view_beside(self, onsideof, **kwargs):
         bounds = self.info["bounds"]
         min_dist, found = -1, None
         for ui in AutomatorDeviceObject(self.device, Selector(**kwargs)):
@@ -1055,5 +1058,266 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             elif action == "to":
                 return __scroll_to(vertical, **kwargs)
         return _scroll
+
+class AutomatorDeviceXMLObject(AutomatorDeviceObject):
+    '''
+        use xml to do selector
+    '''
+    def __init__(self, device, selector, nodes = None):
+
+        super(AutomatorDeviceXMLObject, self).__init__(device, selector)
+        self.root_em = None
+        self.dict = {
+            'text' :                 ['text', self.check_attr],
+            'className' :            ['class', self.check_attr],
+            'description':           ['content-desc', self.check_attr],
+            'checkable':             ['checkable', self.check_attr],
+            'checked':               ['checked', self.check_attr],
+            'clickable':             ['clickable', self.check_attr],
+            'longClickable':         ['long-clickable', self.check_attr],
+            'scrollable':            ['scrollable', self.check_attr],
+            'enabled':               ['enabled', self.check_attr],
+            'focusable':             ['focusable', self.check_attr],
+            'focused':               ['focused', self.check_attr],
+            'selected':              ['selected', self.check_attr],
+            'packageName':           ['package', self.check_attr ],
+            'resourceId':            ['resource-id',self.check_attr],
+            'index':                 ['index', self.check_attr],
+            'textContains':          ['text', self.check_contain],
+            'descriptionContains' :  ['content-desc', self.check_contain],
+            'textMatches':           ['text', self.check_match],
+            'classNameMatches':      ['class', self.check_match],
+            'descriptionMatches':    ['content-desc', self.check_match],
+            'packageNameMatches':    ['package', self.check_match],
+            'resourceIdMatches':     ['resource-id', self.check_match],
+            'textStartsWith':        ['text', self.check_startwith],
+            'descriptionStartsWith': ['content-desc', self.check_startwith]
+        }
+
+        self.nodes = nodes if nodes is not None else self.check_exsit_node(self.rootxml())
+
+    def get_nodes(self):
+        return self._nodes
+
+    def set_nodes(self, value):
+        if len(value)>0:
+            self._nodes = value
+            self.nodes_to_selector()
+        else:
+            raise Exception ("Error response,Error message: UiSelector % s not found \n" % self.selector)
+
+    nodes = property(get_nodes,set_nodes)
+
+    def nodes_to_selector(self):
+        node = self.nodes[0]
+        # self.selector['text'] = node.get('text')
+        selector = {
+            'text':          node.get('text'),
+            'className' :    node.get('class'),
+            'description':   node.get('content-desc'),
+            'checkable':     node.get('checkable'),
+            'checked':       node.get('checked'),
+            'clickable':     node.get('clickable'),
+            'longClickable': node.get('long-clickable'),
+            'scrollable':    node.get('scrollable'),
+            'enabled':       node.get('enabled'),
+            'focusable':     node.get('focusable'),
+            'focused':       node.get('focused'),
+            'selected':      node.get('selected'),
+            'packageName':   node.get('package'),
+            'resourceId':    node.get('resource-id'),
+            'index':         node.get('index'),
+            'instance':      node.get('instance')
+        }
+        for (k, v) in selector.items():
+            if len(str(v)) <=0:
+                del(selector[k])
+        self.selector = Selector(**selector)
+
+    def __len__(self):
+        return self.count
+
+    def __getitem__(self, index):
+        count = self.count
+        if index >= count:
+            raise IndexError()
+        elif count == 1:
+            return self
+        else:
+            self.nodes = [self.nodes[index]]
+            return AutomatorDeviceXMLObject(self.device, selector, self.nodes)
+
+    def rootxml(self):
+        ''' return the root nodes'''
+        if self.root_em is None:
+            try:
+                self.root_em = etree.fromstring(self.device.dump())
+            except etree.ParseError:
+                raise Exception ('Error: hierarchy can not be download')
+        return self.root_em
+
+    def check_attr(self, node, key, select_arg):
+        attr = self.dict[key][0]
+        return select_arg[key] == node.get(attr)
+
+    def check_contain(self, node, key, select_arg):
+        attr = self.dict[key][0]
+        return select_arg[key] in node.get(attr)
+
+    def check_match(self, node, key, select_arg):
+        attr = self.dict[key][0]
+        pattern = re.compile(select_arg[key])
+        return pattern.match(node.get(attr))
+
+    def check_startwith(self, node, key, select_arg):
+        attr = self.dict[key][0]
+        pattern = re.compile(select_arg[key])
+        return node.get(attr).startswith(select_arg[key])
+
+    def check_exsit_node(self, root_em, select_arg = None):
+        '''selected the nodes with the select_arg'''
+
+        selet_json = select_arg if select_arg else self.selector
+        tmp_status = []
+        exsit_contents_nodes = []
+        for em_list in root_em.getiterator('node'):
+            for key in selet_json:
+                if key in self.dict:
+                    attr = self.dict[key][0]
+                    if em_list.get(attr):
+                        if self.dict[key][1](em_list, key, selet_json):
+                            tmp_status.append('True')
+                        else:
+                            tmp_status.append('False')
+                    else:
+                        tmp_status.append('False')
+
+            if "False" not in tmp_status:
+                tmp_status = []
+                exsit_contents_nodes.append(em_list)
+            else:
+                tmp_status = []
+
+        for ex_node in exsit_contents_nodes:
+            i = 0
+            n_bounds = ex_node.get('bounds')
+            del ex_node.attrib['bounds']
+            for elist in root_em.getiterator('node'):
+                if 'bounds' in elist.keys():
+                    em_bounds = elist.get('bounds')
+                    del elist.attrib['bounds']
+                    if cmp(elist.items(),ex_node.items()) == 0:
+                        ex_node.set('instance', i)
+                        i = i + 1
+                else:
+                    ex_node.set('instance', i)
+                    i = i + 1
+                elist.set('bounds',em_bounds)
+            ex_node.set('bounds',n_bounds)
+
+        if 'instance' in selet_json:
+            instance = selet_json['instance']
+            if instance >= len(exsit_contents_nodes):
+                raise IndexError()
+            else:
+                exsit_contents_nodes =exsit_contents_nodes[instance]
+        return exsit_contents_nodes
+
+    def child(self, **kwargs):
+        '''set chileSelector.'''
+        child_selector = kwargs
+        self.selector = Selector(**kwargs)
+        childnodes = self.check_exsit_node(self.rootxml(), child_selector)
+        self.nodes = self.check_child_exsit(childnodes)
+        return self
+
+    def sibling(self, **kwargs):
+        '''set fromParent selector.'''
+        sibling_selector = kwargs
+        self.selector = Selector(**kwargs)
+        siblingnodes = self.check_exsit_node(self.rootxml(), sibling_selector)
+        self.nodes = self.check_sibling_exsit(siblingnodes)
+        return self
+
+    def check_child_exsit(self, childnodes):
+        ''' get childnodes which under the parent nodes'''
+        chlid_exsit_nodes = []
+        for child_n in childnodes:
+            c_inner_index = child_n.get('instance')
+            del child_n.attrib['instance']
+            for node in self.nodes:
+                if 'instance' in node.keys():
+                    del node.attrib['instance']
+                for n in node.getiterator('node'):
+                    if cmp(child_n.items(),n.items()) == 0:
+                        child_n.set('instance',c_inner_index)
+                        chlid_exsit_nodes.append(child_n)
+        return chlid_exsit_nodes
+
+    def check_sibling_exsit(self, siblingnodes):
+        ''' get siblingnodes which with the childnodes in the same parentnodes'''
+
+        sibling_exist_nodes = []
+        for c_node in self.nodes:
+            if 'instance' in c_node.keys():
+                del c_node.attrib['instance']
+            for s_node in siblingnodes:
+                s_inner_index = s_node.get('instance')
+                del s_node.attrib['instance']
+                for em_node in self.rootxml().getiterator('node'):
+                    tmp_child = []
+                    for child_em in em_node.getchildren():
+                        tmp_child.append(child_em.items())
+                    if c_node.items() in tmp_child and s_node.items() in tmp_child:
+                        sibling_exist_nodes.append(s_node)
+        return sibling_exist_nodes
+
+    def bounds_data_split(self,bounds):
+        bounds_datas = re.search(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds)
+        bounds = {
+        'top'   :int(bounds_datas.group(2)),
+        'left'  :int(bounds_datas.group(1)),
+        'bottom':int(bounds_datas.group(4)),
+        'right' :int(bounds_datas.group(3))
+        }
+        return bounds
+
+    @property
+    def exists(self):
+        exsit_count = len(self.nodes)
+        if exsit_count >0 :
+            return True
+        else:
+            return False
+
+    @property
+    def count(self):
+        exsit_count = len(self.nodes)
+        return exsit_count
+
+    # @property
+    # def click(self):
+    #     def _click():
+    #         print self.info
+    #         print self.nodes[0].items()
+    #         object_point = self.bounds_data_split(self.nodes[0].get('bounds'))
+    #         x = (object_point['right']-object_point['left'])/2 +object_point['left']
+    #         y = (object_point['bottom']-object_point['top'])/2 +object_point['top']
+    #         return self.device.click(x,y)
+    #     return _click
+
+    def view_beside(self, onsideof, **kwargs):
+        origin_bounds = self.bounds_data_split(self.nodes[0].get('bounds'))
+        self.selector = Selector(**kwargs)
+        min_dist, found = -1, None
+        founf_obj = []
+        for item in self.check_exsit_node(self.rootxml(), kwargs):
+            dist = onsideof(origin_bounds, self.bounds_data_split(item.get("bounds")))
+            if dist >= 0 and (min_dist < 0 or dist < min_dist):
+                new_arrys = [item]
+                min_dist, founf_obj= dist, new_arrys
+        self.nodes = founf_obj
+        return AutomatorDeviceXMLObject(self.device, self.selector, self.nodes)
+
 
 device = AutomatorDevice()
