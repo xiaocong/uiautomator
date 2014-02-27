@@ -490,7 +490,7 @@ class AutomatorDevice(object):
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
-        return content.encode("utf-8")
+        return content
 
     def screenshot(self, filename, scale=1.0, quality=100):
         '''take screenshot.'''
@@ -1067,7 +1067,7 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
 
         super(AutomatorDeviceXMLObject, self).__init__(device, selector)
         self.root_em = None
-        self.dict = {
+        self.dict_simple = {
             'text' :                 ['text', self.check_attr],
             'className' :            ['class', self.check_attr],
             'description':           ['content-desc', self.check_attr],
@@ -1082,7 +1082,9 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
             'selected':              ['selected', self.check_attr],
             'packageName':           ['package', self.check_attr ],
             'resourceId':            ['resource-id',self.check_attr],
-            'index':                 ['index', self.check_attr],
+            'index':                 ['index', self.check_attr]
+        }
+        self.dict_complex = {
             'textContains':          ['text', self.check_contain],
             'descriptionContains' :  ['content-desc', self.check_contain],
             'textMatches':           ['text', self.check_match],
@@ -1093,8 +1095,8 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
             'textStartsWith':        ['text', self.check_startwith],
             'descriptionStartsWith': ['content-desc', self.check_startwith]
         }
-
-        self.nodes = nodes if nodes is not None else self.check_exsit_node(self.rootxml())
+        self.dict = dict(self.dict_simple, **self.dict_complex)
+        self.nodes = nodes if nodes is not None else self.get_match_node(self.rootxml(), self.selector)
 
     def get_nodes(self):
         return self._nodes
@@ -1102,37 +1104,21 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
     def set_nodes(self, value):
         if len(value)>0:
             self._nodes = value
-            self.nodes_to_selector()
+            self.selector = self.nodes_to_selector(self._nodes[0], self.dict_simple)
         else:
             raise Exception ("Error response,Error message: UiSelector % s not found \n" % self.selector)
 
     nodes = property(get_nodes,set_nodes)
 
-    def nodes_to_selector(self):
+    def nodes_to_selector(self, node, s_dict):
         node = self.nodes[0]
-        # self.selector['text'] = node.get('text')
-        selector = {
-            'text':          node.get('text'),
-            'className' :    node.get('class'),
-            'description':   node.get('content-desc'),
-            'checkable':     node.get('checkable'),
-            'checked':       node.get('checked'),
-            'clickable':     node.get('clickable'),
-            'longClickable': node.get('long-clickable'),
-            'scrollable':    node.get('scrollable'),
-            'enabled':       node.get('enabled'),
-            'focusable':     node.get('focusable'),
-            'focused':       node.get('focused'),
-            'selected':      node.get('selected'),
-            'packageName':   node.get('package'),
-            'resourceId':    node.get('resource-id'),
-            'index':         node.get('index'),
-            'instance':      node.get('instance')
-        }
-        for (k, v) in selector.items():
-            if len(str(v)) <=0:
-                del(selector[k])
-        self.selector = Selector(**selector)
+        selector = {}
+        for key in s_dict:
+            attr_value = node.get(s_dict[key][0])
+            if attr_value not in ['', None]:
+                selector[key] = attr_value
+        selector['instance'] = node.get('instance')
+        return Selector(**selector)
 
     def __len__(self):
         return self.count
@@ -1151,10 +1137,30 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
         ''' return the root nodes'''
         if self.root_em is None:
             try:
-                self.root_em = etree.fromstring(self.device.dump())
+                self.root_em = self.rootxml_add_instance(etree.fromstring(self.device.dump().encode("utf-8")))
             except etree.ParseError:
                 raise Exception ('Error: hierarchy can not be download')
         return self.root_em
+
+    def rootxml_add_instance(self, rootxml):
+        nodes = rootxml.getiterator('node')
+        for f_node in nodes:
+            i = 0
+            if 'instance' not in f_node.keys():
+                f_bounds, ftmp_node_item = node_remove_bounds(f_node)
+                for s_node in nodes:
+                    if 'instance' not in s_node.keys():
+                        if 'bounds' in s_node.keys():
+                            s_bounds, stmp_node_item = node_remove_bounds(s_node)
+                            if cmp_f(stmp_node_item.items(),ftmp_node_item.items()) == 0:
+                                s_node.set('instance', i)
+                                i = i + 1
+                            s_node.set('bounds', s_bounds)
+                        else:
+                            s_node.set('instance', i)
+                            i = i + 1
+                f_node.set('bounds', f_bounds)
+        return rootxml
 
     def check_attr(self, node, key, select_arg):
         attr = self.dict[key][0]
@@ -1174,47 +1180,13 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
         pattern = re.compile(select_arg[key])
         return node.get(attr).startswith(select_arg[key])
 
-    def check_exsit_node(self, root_em, select_arg = None):
-        '''selected the nodes with the select_arg'''
-
-        selet_json = select_arg if select_arg else self.selector
-        tmp_status = []
+    def get_match_node(self, root_em, select_arg):
+        '''get all matched nodes according the select_arg'''
+        selet_json = select_arg
         exsit_contents_nodes = []
         for em_list in root_em.getiterator('node'):
-            for key in selet_json:
-                if key in self.dict:
-                    attr = self.dict[key][0]
-                    if em_list.get(attr):
-                        if self.dict[key][1](em_list, key, selet_json):
-                            tmp_status.append('True')
-                        else:
-                            tmp_status.append('False')
-                    else:
-                        tmp_status.append('False')
-
-            if "False" not in tmp_status:
-                tmp_status = []
+            if self.node_match_seletor(selet_json, em_list):
                 exsit_contents_nodes.append(em_list)
-            else:
-                tmp_status = []
-
-        for ex_node in exsit_contents_nodes:
-            i = 0
-            n_bounds = ex_node.get('bounds')
-            del ex_node.attrib['bounds']
-            for elist in root_em.getiterator('node'):
-                if 'bounds' in elist.keys():
-                    em_bounds = elist.get('bounds')
-                    del elist.attrib['bounds']
-                    if cmp(elist.items(),ex_node.items()) == 0:
-                        i = i + 1
-                else:
-                    ex_node.set('instance', i)
-                    i = i + 1
-                    break
-                elist.set('bounds',em_bounds)
-            ex_node.set('bounds',n_bounds)
-
         if 'instance' in selet_json:
             instance = selet_json['instance']
             if instance >= len(exsit_contents_nodes):
@@ -1223,47 +1195,52 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
                 exsit_contents_nodes =exsit_contents_nodes[instance]
         return exsit_contents_nodes
 
+    def node_match_seletor(self, selet_json, node):
+        '''check if the nose has match selet_json '''
+        tmp_status = []
+        for key in selet_json:
+            if key in self.dict:
+                attr = self.dict[key][0]
+                if node.get(attr):
+                    tmp_status.append(self.dict[key][1](node, key, selet_json))
+                else:
+                    tmp_status.append(False)
+        if False in tmp_status:
+            return False
+        else:
+            return True
+
     def child(self, **kwargs):
         '''set chileSelector.'''
         child_selector = kwargs
         self.selector = Selector(**kwargs)
-        childnodes = self.check_exsit_node(self.rootxml(), child_selector)
-        self.nodes = self.check_child_exsit(childnodes)
+        childnodes = self.get_match_node(self.rootxml(), child_selector)
+        self.nodes = self.filter_childnodes(self.nodes, childnodes)
         return self
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
         sibling_selector = kwargs
         self.selector = Selector(**kwargs)
-        siblingnodes = self.check_exsit_node(self.rootxml(), sibling_selector)
-        self.nodes = self.check_sibling_exsit(siblingnodes)
+        siblingnodes = self.get_match_node(self.rootxml(), sibling_selector)
+        self.nodes = self.filter_siblingnodes(self.nodes, siblingnodes)
         return self
 
-    def check_child_exsit(self, childnodes):
+    def filter_childnodes(self, nodes, childnodes):
         ''' get childnodes which under the parent nodes'''
         chlid_exsit_nodes = []
         for child_n in childnodes:
-            c_inner_index = child_n.get('instance')
-            del child_n.attrib['instance']
-            for node in self.nodes:
-                if 'instance' in node.keys():
-                    del node.attrib['instance']
+            for node in nodes:
                 for n in node.getiterator('node'):
-                    if cmp(child_n.items(),n.items()) == 0:
-                        child_n.set('instance',c_inner_index)
+                    if cmp_f(child_n.items(),n.items()) == 0:
                         chlid_exsit_nodes.append(child_n)
         return chlid_exsit_nodes
 
-    def check_sibling_exsit(self, siblingnodes):
+    def filter_siblingnodes(self, nodes, siblingnodes):
         ''' get siblingnodes which with the childnodes in the same parentnodes'''
-
         sibling_exist_nodes = []
-        for c_node in self.nodes:
-            if 'instance' in c_node.keys():
-                del c_node.attrib['instance']
+        for c_node in nodes:
             for s_node in siblingnodes:
-                s_inner_index = s_node.get('instance')
-                del s_node.attrib['instance']
                 for em_node in self.rootxml().getiterator('node'):
                     tmp_child = []
                     for child_em in em_node.getchildren():
@@ -1300,13 +1277,23 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
         self.selector = Selector(**kwargs)
         min_dist, found = -1, None
         founf_obj = []
-        for item in self.check_exsit_node(self.rootxml(), kwargs):
+        for item in self.get_match_node(self.rootxml(), kwargs):
             dist = onsideof(origin_bounds, self.bounds_data_split(item.get("bounds")))
             if dist >= 0 and (min_dist < 0 or dist < min_dist):
                 new_arrys = [item]
                 min_dist, founf_obj= dist, new_arrys
         self.nodes = founf_obj
         return AutomatorDeviceXMLObject(self.device, self.selector, self.nodes)
+
+def cmp_f(a, b):
+    return (a>b)-(a<b)
+
+def node_remove_bounds(node):
+    node_item = {}
+    bounds = node.get('bounds')
+    del node.attrib['bounds']
+    node_item.update(node.items())
+    return bounds,node_item
 
 
 device = AutomatorDevice()
