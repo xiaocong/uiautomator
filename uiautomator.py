@@ -24,7 +24,7 @@ except:
 if os.name == 'nt':
     import urllib3
 
-__version__ = "0.1.27"
+__version__ = "0.1.28"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
