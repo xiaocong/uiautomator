@@ -17,6 +17,10 @@ try:
     import urllib2
 except ImportError:
     import urllib.request as urllib2
+try:
+    from httplib import HTTPException
+except:
+    from http.client import HTTPException
 if os.name == 'nt':
     import urllib3
 
@@ -360,7 +364,7 @@ class AutomatorServer(object):
                 URLError = urllib3.exceptions.HTTPError if os.name == "nt" else urllib2.URLError
                 try:
                     return _method_obj(*args, **kwargs)
-                except (URLError, socket.error) as e:
+                except (URLError, socket.error, HTTPException) as e:
                     server.stop()
                     server.start()
                     return _method_obj(*args, **kwargs)
