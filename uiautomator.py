@@ -12,6 +12,7 @@ import json
 import hashlib
 import socket
 import re
+import collections
 
 try:
     import urllib2
@@ -306,6 +307,19 @@ def next_local_port():
     return _init_local_port
 
 
+class NotFoundHandler(object):
+    '''
+    Handler for UI Object Not Found exception.
+    It's a replacement of UiAutomator watcher on device side.
+    '''
+
+    def __init__(self):
+        self.__handlers = collections.defaultdict(lambda: {'on': True, 'handlers': []})
+
+    def __get__(self, instance, type):
+        return self.__handlers[instance.adb.device_serial()]
+
+
 class AutomatorServer(object):
 
     """start and quit rpc server on device.
@@ -314,6 +328,7 @@ class AutomatorServer(object):
         "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/bundle.jar",
         "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/uiautomator-stub.jar"
     }
+    handlers = NotFoundHandler()  # handler UI Not Found exception
 
     def __init__(self, serial=None, local_port=None):
         self.uiautomator_process = None
@@ -372,6 +387,16 @@ class AutomatorServer(object):
                     if e.code >= ERROR_CODE_BASE - 1:
                         server.stop()
                         server.start()
+                        return _method_obj(*args, **kwargs)
+                    elif e.code == ERROR_CODE_BASE - 2 and self.handlers['on']:  # Not Found
+                        for handler in self.handlers['handlers']:
+                            try:
+                                self.handlers['on'] = False
+                                if callable(handler):
+                                    if handler():
+                                        break
+                            finally:
+                                self.handlers['on'] = True
                         return _method_obj(*args, **kwargs)
                     raise
             return wrapper
@@ -555,6 +580,22 @@ class AutomatorDevice(object):
             else:
                 return self.server.jsonrpc.openQuickSettings()
         return _open
+
+    @property
+    def handlers(self):
+        obj = self
+
+        class Handlers(object):
+
+            def on(self, fn):
+                obj.server.handlers['handlers'].append(fn)
+                return fn
+
+            def off(self, fn):
+                if fn in obj.server.handlers['handlers']:
+                    obj.server.handlers['handlers'].remove(fn)
+
+        return Handlers()
 
     @property
     def watchers(self):
