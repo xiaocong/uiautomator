@@ -31,6 +31,13 @@ class TestDevice(unittest.TestCase):
         self.assertEqual(self.device.swipe(1, 2, 3, 4, 100), True)
         self.device.server.jsonrpc.swipe.assert_called_once_with(1, 2, 3, 4, 100)
 
+    def test_long_click(self):
+        self.device.server.jsonrpc.swipe = MagicMock()
+        self.device.server.jsonrpc.swipe.return_value = True
+        x, y = 100, 200
+        self.assertEqual(self.device.long_click(x, y), True)
+        self.device.server.jsonrpc.swipe.assert_called_once_with(x, y, x+1, y+1, 100)
+
     def test_drag(self):
         self.device.server.jsonrpc.drag = MagicMock()
         self.device.server.jsonrpc.drag.return_value = True

@@ -777,22 +777,23 @@ class AutomatorDeviceUiObject(object):
         @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
         def _long_click(corner=None):
             info = self.info
-            if info['longClickable']:
-                if corner is None:
-                    return self.jsonrpc.longClick(self.selector)
-                else:
+            if info["longClickable"]:
+                if corner:
                     return self.jsonrpc.longClick(self.selector, corner)
-            else:
-                if corner in ["tl", "topleft"]:
-                    x = (5*info['visibleBounds']['left'] + info['visibleBounds']['right'])/6
-                    y = (5*info['visibleBounds']['top'] + info['visibleBounds']['bottom'])/6
-                elif corner in ["br", "bottomright"]:
-                    x = (info['visibleBounds']['left'] + 5*info['visibleBounds']['right'])/6
-                    y = (info['visibleBounds']['top'] + 5*info['visibleBounds']['bottom'])/6
                 else:
-                    x = (info['visibleBounds']['left'] + info['visibleBounds']['right'])/2
-                    y = (info['visibleBounds']['top'] + info['visibleBounds']['bottom'])/2
-                return self.device.swipe(x, y, x + 1, y + 1)
+                    return self.jsonrpc.longClick(self.selector)
+            else:
+                bounds = info["visibleBounds"]
+                if corner in ["tl", "topleft"]:
+                    x = (5*bounds["left"] + bounds["right"])/6
+                    y = (5*bounds["top"] + bounds["bottom"])/6
+                elif corner in ["br", "bottomright"]:
+                    x = (bounds["left"] + 5*bounds["right"])/6
+                    y = (bounds["top"] + 5*bounds["bottom"])/6
+                else:
+                    x = (bounds["left"] + bounds["right"])/2
+                    y = (bounds["top"] + bounds["bottom"])/2
+                return self.device.long_click(x, y)
         return _long_click
 
     @property
