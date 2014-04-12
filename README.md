@@ -146,6 +146,13 @@ This part show the normal actions of the device through some simple examples.
   d.click(x, y)
   ```
 
+* Long click the screen
+
+  ```python
+  # long click (x, y) on screen
+  d.long_click(x, y)
+  ```
+
 * Swipe
 
   ```python

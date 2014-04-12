@@ -70,6 +70,7 @@ class JsonRPCError(Exception):
     def __str__(self):
         return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
 
+
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
@@ -178,7 +179,8 @@ class Selector(dict):
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
     def clone(self):
-        kwargs = dict((k, self[k]) for k in self if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
+        kwargs = dict((k, self[k]) for k in self
+                      if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
         selector = Selector(**kwargs)
         for v in self[self.__childOrSibling]:
             selector[self.__childOrSibling].append(v)
@@ -199,6 +201,7 @@ class Selector(dict):
 
 def rect(top=0, left=0, bottom=100, right=100):
     return {"top": top, "left": left, "bottom": bottom, "right": right}
+
 
 def intersect(rect1, rect2):
     top = rect1["top"] if rect1["top"] > rect2["top"] else rect2["top"]
@@ -292,9 +295,10 @@ class Adb(object):
 
 
 _init_local_port = 9007
+
+
 def next_local_port():
     def is_port_listening(port):
-        import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = s.connect_ex(('127.0.0.1', port))
         s.close()
@@ -311,8 +315,12 @@ class AutomatorServer(object):
     """start and quit rpc server on device.
     """
     __jar_files = {
-        "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/bundle.jar",
-        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/uiautomator-stub.jar"
+        "bundle.jar": "https://github.com/xiaocong/"
+                      "android-uiautomator-jsonrpcserver/releases/download/"
+                      "v0.1.3/bundle.jar",
+        "uiautomator-stub.jar": "https://github.com/xiaocong/"
+                                "android-uiautomator-jsonrpcserver/releases/download/"
+                                "v0.1.3/uiautomator-stub.jar"
     }
 
     def __init__(self, serial=None, local_port=None):
@@ -322,7 +330,7 @@ class AutomatorServer(object):
         if local_port:
             self.local_port = local_port
         else:
-            try: # first we will try to use the local port already adb forwarded
+            try:  # first we will try to use the local port already adb forwarded
                 for s, lp, rp in self.adb.forward_list():
                     if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
                         self.local_port = int(lp[4:])
@@ -360,6 +368,7 @@ class AutomatorServer(object):
 
         def _JsonRPCMethod(url, method, timeout):
             _method_obj = JsonRPCMethod(url, method, timeout)
+
             def wrapper(*args, **kwargs):
                 URLError = urllib3.exceptions.HTTPError if os.name == "nt" else urllib2.URLError
                 try:
@@ -376,7 +385,9 @@ class AutomatorServer(object):
                     raise
             return wrapper
 
-        return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
+        return JsonRPCClient(self.rpc_uri,
+                             timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)),
+                             method_class=_JsonRPCMethod)
 
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
@@ -478,6 +489,10 @@ class AutomatorDevice(object):
     def click(self, x, y):
         '''click at arbitrary coordinates.'''
         return self.server.jsonrpc.click(x, y)
+
+    def long_click(self, x, y):
+        '''long click at arbitrary coordinates.'''
+        return self.swipe(x, y, x + 1, y + 1)
 
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
@@ -761,10 +776,24 @@ class AutomatorDeviceUiObject(object):
         '''
         @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
         def _long_click(corner=None):
-            if corner is None:
-                return self.jsonrpc.longClick(self.selector)
+            info = self.info
+            if info["longClickable"]:
+                if corner:
+                    return self.jsonrpc.longClick(self.selector, corner)
+                else:
+                    return self.jsonrpc.longClick(self.selector)
             else:
-                return self.jsonrpc.longClick(self.selector, corner)
+                bounds = info["visibleBounds"]
+                if corner in ["tl", "topleft"]:
+                    x = (5*bounds["left"] + bounds["right"])/6
+                    y = (5*bounds["top"] + bounds["bottom"])/6
+                elif corner in ["br", "bottomright"]:
+                    x = (bounds["left"] + 5*bounds["right"])/6
+                    y = (bounds["top"] + 5*bounds["bottom"])/6
+                else:
+                    x = (bounds["left"] + bounds["right"])/2
+                    y = (bounds["top"] + bounds["bottom"])/2
+                return self.device.long_click(x, y)
         return _long_click
 
     @property
@@ -791,7 +820,7 @@ class AutomatorDeviceUiObject(object):
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
         def to(obj_self, end1, end2, steps=100):
-            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt # convert tuple to point
+            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
             s1, s2, e1, e2 = ctp(start1), ctp(start2), ctp(end1), ctp(end2)
             return self.jsonrpc.gesture(self.selector, s1, s2, e1, e2, steps)
         obj = type("Gesture", (object,), {"to": to})()
@@ -864,7 +893,8 @@ class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
 
 class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
-    '''Represent a generic UiObject/UiScrollable/UiCollection, on which user can perform actions, such as click, set text
+    '''Represent a generic UiObject/UiScrollable/UiCollection,
+    on which user can perform actions, such as click, set text
     '''
 
     def __init__(self, device, selector):
@@ -990,7 +1020,6 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             if dist >= 0 and (min_dist < 0 or dist < min_dist):
                 min_dist, found = dist, ui
         return found
-
 
     @property
     def fling(self):
