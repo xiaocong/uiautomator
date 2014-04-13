@@ -71,6 +71,7 @@ class JsonRPCError(Exception):
     def __str__(self):
         return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
 
+
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
@@ -179,7 +180,9 @@ class Selector(dict):
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
     def clone(self):
-        kwargs = dict((k, self[k]) for k in self if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
+        kwargs = dict((k, self[k])
+                      for k in self
+                      if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
         selector = Selector(**kwargs)
         for v in self[self.__childOrSibling]:
             selector[self.__childOrSibling].append(v)
@@ -200,6 +203,7 @@ class Selector(dict):
 
 def rect(top=0, left=0, bottom=100, right=100):
     return {"top": top, "left": left, "bottom": bottom, "right": right}
+
 
 def intersect(rect1, rect2):
     top = rect1["top"] if rect1["top"] > rect2["top"] else rect2["top"]
@@ -293,9 +297,10 @@ class Adb(object):
 
 
 _init_local_port = 9007
+
+
 def next_local_port():
     def is_port_listening(port):
-        import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = s.connect_ex(('127.0.0.1', port))
         s.close()
@@ -308,6 +313,7 @@ def next_local_port():
 
 
 class NotFoundHandler(object):
+
     '''
     Handler for UI Object Not Found exception.
     It's a replacement of UiAutomator watcher on device side.
@@ -337,7 +343,7 @@ class AutomatorServer(object):
         if local_port:
             self.local_port = local_port
         else:
-            try: # first we will try to use the local port already adb forwarded
+            try:  # first we will try to use the local port already adb forwarded
                 for s, lp, rp in self.adb.forward_list():
                     if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
                         self.local_port = int(lp[4:])
@@ -375,6 +381,7 @@ class AutomatorServer(object):
 
         def _JsonRPCMethod(url, method, timeout):
             _method_obj = JsonRPCMethod(url, method, timeout)
+
             def wrapper(*args, **kwargs):
                 URLError = urllib3.exceptions.HTTPError if os.name == "nt" else urllib2.URLError
                 try:
@@ -389,19 +396,19 @@ class AutomatorServer(object):
                         server.start()
                         return _method_obj(*args, **kwargs)
                     elif e.code == ERROR_CODE_BASE - 2 and self.handlers['on']:  # Not Found
-                        for handler in self.handlers['handlers']:
-                            try:
-                                self.handlers['on'] = False
-                                if callable(handler):
-                                    if handler():
-                                        break
-                            finally:
-                                self.handlers['on'] = True
+                        try:
+                            self.handlers['on'] = False
+                            # any handler returns True will break the left handlers
+                            any(handler() for handler in self.handlers['handlers'])
+                        finally:
+                            self.handlers['on'] = True
                         return _method_obj(*args, **kwargs)
                     raise
             return wrapper
 
-        return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
+        return JsonRPCClient(self.rpc_uri,
+                             timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)),
+                             method_class=_JsonRPCMethod)
 
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
@@ -588,7 +595,8 @@ class AutomatorDevice(object):
         class Handlers(object):
 
             def on(self, fn):
-                obj.server.handlers['handlers'].append(fn)
+                if fn not in obj.server.handlers['handlers']:
+                    obj.server.handlers['handlers'].append(fn)
                 return fn
 
             def off(self, fn):
@@ -832,7 +840,7 @@ class AutomatorDeviceUiObject(object):
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
         def to(obj_self, end1, end2, steps=100):
-            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt # convert tuple to point
+            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
             s1, s2, e1, e2 = ctp(start1), ctp(start2), ctp(end1), ctp(end2)
             return self.jsonrpc.gesture(self.selector, s1, s2, e1, e2, steps)
         obj = type("Gesture", (object,), {"to": to})()
@@ -905,7 +913,8 @@ class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
 
 class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
-    '''Represent a generic UiObject/UiScrollable/UiCollection, on which user can perform actions, such as click, set text
+    '''Represent a generic UiObject/UiScrollable/UiCollection, on which user
+       can perform actions, such as click, set text
     '''
 
     def __init__(self, device, selector):
@@ -1031,7 +1040,6 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             if dist >= 0 and (min_dist < 0 or dist < min_dist):
                 min_dist, found = dist, ui
         return found
-
 
     @property
     def fling(self):
