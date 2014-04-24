@@ -1251,6 +1251,8 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
         self.nodes = filter_sibling(self.nodes, siblings)
         return self
 
+    child_selector, from_parent = child, sibling
+
     @property
     def exists(self):
         return True if len(self.nodes) > 0 else False
