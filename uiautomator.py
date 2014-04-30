@@ -509,9 +509,9 @@ class AutomatorDevice(object):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
 
-    def dump(self, filename=None):
+    def dump(self, filename=None, compressed=True):
         '''dump device window and pull to local file.'''
-        content = self.server.jsonrpc.dumpWindowHierarchy(True, None)
+        content = self.server.jsonrpc.dumpWindowHierarchy(compressed, None)
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
