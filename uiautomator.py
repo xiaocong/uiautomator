@@ -1192,7 +1192,7 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
     def __init__(self, device, selector, nodes=None):
         super(AutomatorDeviceXMLObject, self).__init__(device, selector)
         self.root_em = None
-        self.nodes = nodes or self.filter_nodes(self.rootxml, self.selector)
+        self.nodes = nodes or self.filter_nodes(self.rootxml, selector)
 
     def get_nodes(self):
         return self.__nodes
@@ -1202,7 +1202,7 @@ class AutomatorDeviceXMLObject(AutomatorDeviceObject):
             self.__nodes = value
             self.selector = self.node_to_selector(value[0])
         else:
-            raise Exception("Error response,Error message: UiSelector % s not found \n" % self.selector)
+            raise Exception("Error response,Error message: UiSelector %s not found \n" % self.selector)
 
     nodes = property(get_nodes, set_nodes)
 
