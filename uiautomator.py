@@ -3,6 +3,7 @@
 
 """Python wrapper for Android uiautomator tool."""
 
+import sys
 import os
 import subprocess
 import time
@@ -27,6 +28,13 @@ if os.name == 'nt':
 __version__ = "0.1.28"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
+
+
+def U(x):
+    if sys.version_info.major == 2:
+        return x.decode('utf-8') if type(x) is str else x
+    elif sys.version_info.major == 3:
+        return x
 
 
 def param_to_property(*props, **kwprops):
@@ -168,7 +176,7 @@ class Selector(dict):
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            super(Selector, self).__setitem__(k, v)
+            super(Selector, self).__setitem__(U(k), U(v))
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
