@@ -22,8 +22,11 @@ try:
     from httplib import HTTPException
 except:
     from http.client import HTTPException
-if os.name == 'nt':
-    import urllib3
+try:
+    if os.name == 'nt':
+        import urllib3
+except:  # to fix python setup error on Windows.
+    pass
 
 __version__ = "0.1.28"
 __author__ = "Xiaocong He"
