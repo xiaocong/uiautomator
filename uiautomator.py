@@ -399,7 +399,7 @@ class AutomatorServer(object):
                         try:
                             self.handlers['on'] = False
                             # any handler returns True will break the left handlers
-                            any(handler() for handler in self.handlers['handlers'])
+                            any(handler(self.handlers.get('device', None)) for handler in self.handlers['handlers'])
                         finally:
                             self.handlers['on'] = True
                         return _method_obj(*args, **kwargs)
@@ -597,6 +597,7 @@ class AutomatorDevice(object):
             def on(self, fn):
                 if fn not in obj.server.handlers['handlers']:
                     obj.server.handlers['handlers'].append(fn)
+                obj.server.handlers['device'] = obj
                 return fn
 
             def off(self, fn):
