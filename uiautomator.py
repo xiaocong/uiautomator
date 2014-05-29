@@ -379,7 +379,7 @@ class AutomatorServer(object):
         server = self
         ERROR_CODE_BASE = -32000
 
-        def _JsonRPCMethod(url, method, timeout):
+        def _JsonRPCMethod(url, method, timeout, restart=True):
             _method_obj = JsonRPCMethod(url, method, timeout)
 
             def wrapper(*args, **kwargs):
@@ -387,9 +387,12 @@ class AutomatorServer(object):
                 try:
                     return _method_obj(*args, **kwargs)
                 except (URLError, socket.error, HTTPException) as e:
-                    server.stop()
-                    server.start()
-                    return _method_obj(*args, **kwargs)
+                    if restart:
+                        server.stop()
+                        server.start()
+                        return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
+                    else:
+                        raise
                 except JsonRPCError as e:
                     if e.code >= ERROR_CODE_BASE - 1:
                         server.stop()
