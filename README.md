@@ -51,6 +51,8 @@ d(text="Clock").click()
 
 **[Watcher introduction](#watcher)**
 
+**[Handler introduction](#handler)**
+
 **[Selector introduction ](#selector)** 
   - **[How to selector the Child and sibling UI object](#child-and-sibling-ui-object)**
   - **[Get the specific UI object status and its information](#get-the-selected-ui-object-status-and-its-information)**
@@ -229,7 +231,7 @@ This part show the normal actions of the device through some simple examples.
 
 ### Watcher
 
-  You can register [watcher](http://developer.android.com/tools/help/uiautomator/UiWatcher.html) to perform some actions when a selector can not find a match.
+You can register [watcher](http://developer.android.com/tools/help/uiautomator/UiWatcher.html) to perform some actions when a selector can not find a match.
 
 
 * Register Watcher
@@ -312,6 +314,23 @@ This part show the normal actions of the device through some simple examples.
   # force to run all registered watchers
   d.watchers.run()
   ```
+
+### Handler
+
+The functionality of handler is same as Watcher, except it is implemented ourside of Android uiautomator. The most different usage between handler and watcher is, handler can use customized callback function.
+
+```python
+def fc_close(device):
+  if device(text='Force Close').exists:
+    device(text='Force Close').click()
+  return True  # return True means to break the loop of handler callback functions.
+
+# turn on the handler callback function
+d.handlers.on(fc_close)
+
+# turn off the handler callback function
+d.handlers.off(fc_close)
+```
 
 ### Selector
 
