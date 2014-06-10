@@ -15,6 +15,9 @@ import socket
 import re
 import collections
 
+if 'localhost' not in os.environ.get('no_proxy', ''):
+    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
+
 try:
     import urllib2
 except ImportError:
