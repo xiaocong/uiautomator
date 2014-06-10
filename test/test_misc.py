@@ -9,6 +9,10 @@ from mock import patch
 
 class TestMisc(unittest.TestCase):
 
+    def test_proxy(self):
+        self.assertTrue('no_proxy' in os.environ)
+        self.assertTrue('localhost' in os.environ.get('no_proxy', ''))
+
     def test_load(self):
         try:
             from imp import reload
