@@ -1,6 +1,5 @@
 *.class
 bin
-libs
 build
 dist
 uiautomator.egg-info
