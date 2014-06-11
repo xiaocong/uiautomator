@@ -3,15 +3,19 @@
 
 """Python wrapper for Android uiautomator tool."""
 
+import sys
 import os
 import subprocess
 import time
 import itertools
-import tempfile
 import json
 import hashlib
 import socket
 import re
+import collections
+
+if 'localhost' not in os.environ.get('no_proxy', ''):
+    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
 
 try:
     import urllib2
@@ -21,12 +25,22 @@ try:
     from httplib import HTTPException
 except:
     from http.client import HTTPException
-if os.name == 'nt':
-    import urllib3
+try:
+    if os.name == 'nt':
+        import urllib3
+except:  # to fix python setup error on Windows.
+    pass
 
-__version__ = "0.1.28"
+__version__ = "0.1.29"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
+
+
+def U(x):
+    if sys.version_info.major == 2:
+        return x.decode('utf-8') if type(x) is str else x
+    elif sys.version_info.major == 3:
+        return x
 
 
 def param_to_property(*props, **kwprops):
@@ -69,6 +83,7 @@ class JsonRPCError(Exception):
 
     def __str__(self):
         return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
+
 
 class JsonRPCMethod(object):
 
@@ -167,7 +182,7 @@ class Selector(dict):
 
     def __setitem__(self, k, v):
         if k in self.__fields:
-            super(Selector, self).__setitem__(k, v)
+            super(Selector, self).__setitem__(U(k), U(v))
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
             raise ReferenceError("%s is not allowed." % k)
@@ -178,7 +193,8 @@ class Selector(dict):
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
     def clone(self):
-        kwargs = dict((k, self[k]) for k in self if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
+        kwargs = dict((k, self[k]) for k in self
+                      if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
         selector = Selector(**kwargs)
         for v in self[self.__childOrSibling]:
             selector[self.__childOrSibling].append(v)
@@ -199,6 +215,7 @@ class Selector(dict):
 
 def rect(top=0, left=0, bottom=100, right=100):
     return {"top": top, "left": left, "bottom": bottom, "right": right}
+
 
 def intersect(rect1, rect2):
     top = rect1["top"] if rect1["top"] > rect2["top"] else rect2["top"]
@@ -292,9 +309,10 @@ class Adb(object):
 
 
 _init_local_port = 9007
+
+
 def next_local_port():
     def is_port_listening(port):
-        import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = s.connect_ex(('127.0.0.1', port))
         s.close()
@@ -306,14 +324,29 @@ def next_local_port():
     return _init_local_port
 
 
+class NotFoundHandler(object):
+
+    '''
+    Handler for UI Object Not Found exception.
+    It's a replacement of UiAutomator watcher on device side.
+    '''
+
+    def __init__(self):
+        self.__handlers = collections.defaultdict(lambda: {'on': True, 'handlers': []})
+
+    def __get__(self, instance, type):
+        return self.__handlers[instance.adb.device_serial()]
+
+
 class AutomatorServer(object):
 
     """start and quit rpc server on device.
     """
     __jar_files = {
-        "bundle.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/bundle.jar",
-        "uiautomator-stub.jar": "https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases/download/v0.1.3/uiautomator-stub.jar"
+        "bundle.jar": "libs/bundle.jar",
+        "uiautomator-stub.jar": "libs/uiautomator-stub.jar"
     }
+    handlers = NotFoundHandler()  # handler UI Not Found exception
 
     def __init__(self, serial=None, local_port=None):
         self.uiautomator_process = None
@@ -322,7 +355,7 @@ class AutomatorServer(object):
         if local_port:
             self.local_port = local_port
         else:
-            try: # first we will try to use the local port already adb forwarded
+            try:  # first we will try to use the local port already adb forwarded
                 for s, lp, rp in self.adb.forward_list():
                     if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
                         self.local_port = int(lp[4:])
@@ -332,14 +365,10 @@ class AutomatorServer(object):
             except:
                 self.local_port = next_local_port()
 
-    def download_and_push(self):
-        lib_path = os.path.join(tempfile.gettempdir(), "libs")
-        if not os.path.exists(lib_path):
-            os.mkdir(lib_path)
+    def push(self):
+        base_dir = os.path.dirname(__file__)
         for jar, url in self.__jar_files.items():
-            filename = os.path.join(lib_path, jar)
-            if not os.path.exists(filename) or os.stat(filename).st_size == 0:
-                self.download(filename, url)
+            filename = os.path.join(base_dir, url)
             self.adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
 
@@ -358,31 +387,45 @@ class AutomatorServer(object):
         server = self
         ERROR_CODE_BASE = -32000
 
-        def _JsonRPCMethod(url, method, timeout):
+        def _JsonRPCMethod(url, method, timeout, restart=True):
             _method_obj = JsonRPCMethod(url, method, timeout)
+
             def wrapper(*args, **kwargs):
                 URLError = urllib3.exceptions.HTTPError if os.name == "nt" else urllib2.URLError
                 try:
                     return _method_obj(*args, **kwargs)
                 except (URLError, socket.error, HTTPException) as e:
-                    server.stop()
-                    server.start()
-                    return _method_obj(*args, **kwargs)
+                    if restart:
+                        server.stop()
+                        server.start()
+                        return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
+                    else:
+                        raise
                 except JsonRPCError as e:
                     if e.code >= ERROR_CODE_BASE - 1:
                         server.stop()
                         server.start()
                         return _method_obj(*args, **kwargs)
+                    elif e.code == ERROR_CODE_BASE - 2 and self.handlers['on']:  # Not Found
+                        try:
+                            self.handlers['on'] = False
+                            # any handler returns True will break the left handlers
+                            any(handler(self.handlers.get('device', None)) for handler in self.handlers['handlers'])
+                        finally:
+                            self.handlers['on'] = True
+                        return _method_obj(*args, **kwargs)
                     raise
             return wrapper
 
-        return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)), method_class=_JsonRPCMethod)
+        return JsonRPCClient(self.rpc_uri,
+                             timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)),
+                             method_class=_JsonRPCMethod)
 
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
     def start(self):
-        files = self.download_and_push()
+        files = self.push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))
@@ -479,6 +522,10 @@ class AutomatorDevice(object):
         '''click at arbitrary coordinates.'''
         return self.server.jsonrpc.click(x, y)
 
+    def long_click(self, x, y):
+        '''long click at arbitrary coordinates.'''
+        return self.swipe(x, y, x + 1, y + 1)
+
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
 
@@ -486,9 +533,9 @@ class AutomatorDevice(object):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
 
-    def dump(self, filename=None):
+    def dump(self, filename=None, compressed=True):
         '''dump device window and pull to local file.'''
-        content = self.server.jsonrpc.dumpWindowHierarchy(True, None)
+        content = self.server.jsonrpc.dumpWindowHierarchy(compressed, None)
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
@@ -555,6 +602,24 @@ class AutomatorDevice(object):
             else:
                 return self.server.jsonrpc.openQuickSettings()
         return _open
+
+    @property
+    def handlers(self):
+        obj = self
+
+        class Handlers(object):
+
+            def on(self, fn):
+                if fn not in obj.server.handlers['handlers']:
+                    obj.server.handlers['handlers'].append(fn)
+                obj.server.handlers['device'] = obj
+                return fn
+
+            def off(self, fn):
+                if fn in obj.server.handlers['handlers']:
+                    obj.server.handlers['handlers'].remove(fn)
+
+        return Handlers()
 
     @property
     def watchers(self):
@@ -761,10 +826,24 @@ class AutomatorDeviceUiObject(object):
         '''
         @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
         def _long_click(corner=None):
-            if corner is None:
-                return self.jsonrpc.longClick(self.selector)
+            info = self.info
+            if info["longClickable"]:
+                if corner:
+                    return self.jsonrpc.longClick(self.selector, corner)
+                else:
+                    return self.jsonrpc.longClick(self.selector)
             else:
-                return self.jsonrpc.longClick(self.selector, corner)
+                bounds = info["visibleBounds"]
+                if corner in ["tl", "topleft"]:
+                    x = (5*bounds["left"] + bounds["right"])/6
+                    y = (5*bounds["top"] + bounds["bottom"])/6
+                elif corner in ["br", "bottomright"]:
+                    x = (bounds["left"] + 5*bounds["right"])/6
+                    y = (bounds["top"] + 5*bounds["bottom"])/6
+                else:
+                    x = (bounds["left"] + bounds["right"])/2
+                    y = (bounds["top"] + bounds["bottom"])/2
+                return self.device.long_click(x, y)
         return _long_click
 
     @property
@@ -791,7 +870,7 @@ class AutomatorDeviceUiObject(object):
         d().gesture(startPoint1, startPoint2, endPoint1, endPoint2, steps)
         '''
         def to(obj_self, end1, end2, steps=100):
-            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt # convert tuple to point
+            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
             s1, s2, e1, e2 = ctp(start1), ctp(start2), ctp(end1), ctp(end2)
             return self.jsonrpc.gesture(self.selector, s1, s2, e1, e2, steps)
         obj = type("Gesture", (object,), {"to": to})()
@@ -864,7 +943,8 @@ class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
 
 class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
-    '''Represent a generic UiObject/UiScrollable/UiCollection, on which user can perform actions, such as click, set text
+    '''Represent a generic UiObject/UiScrollable/UiCollection,
+    on which user can perform actions, such as click, set text
     '''
 
     def __init__(self, device, selector):
@@ -990,7 +1070,6 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             if dist >= 0 and (min_dist < 0 or dist < min_dist):
                 min_dist, found = dist, ui
         return found
-
 
     @property
     def fling(self):

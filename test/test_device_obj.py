@@ -158,6 +158,36 @@ class TestDeviceObj(unittest.TestCase):
         self.assertTrue(self.obj.long_click())
         self.jsonrpc.longClick.assert_called_once_with(self.obj.selector)
 
+    def test_long_click_using_swipe(self):
+        self.device.long_click.return_value = False
+        self.jsonrpc.objInfo.return_value = {
+            'longClickable': False,
+            'visibleBounds': {
+                'top': 0,
+                'bottom': 60,
+                'left': 0,
+                'right': 60
+            }
+        }
+        corners = ["tl", "topleft", "br", "bottomright"]
+        for c in corners:
+            self.assertFalse(self.obj.long_click(c))
+        self.assertEqual(self.device.long_click.call_args_list,
+                         [call(10, 10), call(10, 10), call(50, 50), call(50, 50)])
+
+        self.device.long_click = MagicMock()
+        self.device.long_click.return_value = True
+        corners = ["tl", "topleft", "br", "bottomright"]
+        for c in corners:
+            self.assertTrue(getattr(self.obj.long_click, c)())
+        self.assertEqual(self.device.long_click.call_args_list,
+                         [call(10, 10), call(10, 10), call(50, 50), call(50, 50)])
+
+        self.device.long_click = MagicMock()
+        self.device.long_click.return_value = True
+        self.assertTrue(self.obj.long_click())
+        self.device.long_click.assert_called_once_with(30, 30)
+
     def test_drag_to(self):
         self.jsonrpc.dragTo.return_value = False
         self.assertFalse(self.obj.drag.to(10, 20, steps=10))

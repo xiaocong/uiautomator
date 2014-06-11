@@ -1,0 +1,4 @@
+include uiautomator/*.py
+include setup.py
+include uiautomator/libs/*.jar
+include test/*.py

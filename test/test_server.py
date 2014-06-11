@@ -44,8 +44,8 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_start_success(self):
         server = AutomatorServer()
-        server.download_and_push = MagicMock()
-        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.push = MagicMock()
+        server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
         server.ping.return_value = "pong"
         server.adb = MagicMock()
@@ -54,8 +54,8 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_start_error(self):
         server = AutomatorServer()
-        server.download_and_push = MagicMock()
-        server.download_and_push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.push = MagicMock()
+        server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
         server.ping.return_value = None
         server.adb = MagicMock()
@@ -131,29 +131,14 @@ class TestAutomatorServer_Stop(unittest.TestCase):
     def tearDown(self):
         self.urlopen_patch.stop()
 
-    def test_download_and_push(self):
+    def test_push(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("os.path.exists") as exists:
-            with patch("os.stat") as stat:
-                server = AutomatorServer()
-                server.adb = MagicMock()
-                exists.return_value = True
-                stat.st_size = 1024
-                self.assertEqual(set(server.download_and_push()), set(jars))
-                for args in server.adb.cmd.call_args_list:
-                    self.assertEqual(args[0][0], "push")
-                    self.assertEqual(args[0][2], "/data/local/tmp/")
-
-    def test_download_and_push_download(self):
-        jars = ["bundle.jar", "uiautomator-stub.jar"]
-        with patch("os.path.exists") as exists:
-            with patch("os.mkdir") as mkdir:
-                with patch("%s.open" % open.__class__.__module__, mock_open(), create=True) as m_open:
-                    server = AutomatorServer()
-                    server.adb = MagicMock()
-                    exists.return_value = False
-                    self.assertEqual(set(server.download_and_push()), set(jars))
-                    self.assertEqual(len(m_open.call_args_list), len(jars))
+        server = AutomatorServer()
+        server.adb = MagicMock()
+        self.assertEqual(set(server.push()), set(jars))
+        for args in server.adb.cmd.call_args_list:
+            self.assertEqual(args[0][0], "push")
+            self.assertEqual(args[0][2], "/data/local/tmp/")
 
     def test_stop_started_server(self):
         server = AutomatorServer()
