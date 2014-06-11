@@ -8,7 +8,6 @@ import os
 import subprocess
 import time
 import itertools
-import tempfile
 import json
 import hashlib
 import socket
@@ -344,12 +343,8 @@ class AutomatorServer(object):
     """start and quit rpc server on device.
     """
     __jar_files = {
-        "bundle.jar": "https://github.com/xiaocong/"
-                      "android-uiautomator-jsonrpcserver/releases/download/"
-                      "v0.1.3/bundle.jar",
-        "uiautomator-stub.jar": "https://github.com/xiaocong/"
-                                "android-uiautomator-jsonrpcserver/releases/download/"
-                                "v0.1.3/uiautomator-stub.jar"
+        "bundle.jar": "libs/bundle.jar",
+        "uiautomator-stub.jar": "libs/uiautomator-stub.jar"
     }
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
@@ -370,14 +365,10 @@ class AutomatorServer(object):
             except:
                 self.local_port = next_local_port()
 
-    def download_and_push(self):
-        lib_path = os.path.join(tempfile.gettempdir(), "libs")
-        if not os.path.exists(lib_path):
-            os.mkdir(lib_path)
+    def push(self):
+        base_dir = os.path.dirname(__file__)
         for jar, url in self.__jar_files.items():
-            filename = os.path.join(lib_path, jar)
-            if not os.path.exists(filename) or os.stat(filename).st_size == 0:
-                self.download(filename, url)
+            filename = os.path.join(base_dir, url)
             self.adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
 
@@ -434,7 +425,7 @@ class AutomatorServer(object):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
     def start(self):
-        files = self.download_and_push()
+        files = self.push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
                                    ["-c", "com.github.uiautomatorstub.Stub"]))

@@ -30,8 +30,9 @@ setup(
     install_requires=requires,
     tests_require=test_requires,
     test_suite="nose.collector",
-    py_modules=['uiautomator'],
-    scripts=['uiautomator.py'],
+    packages=['uiautomator'],
+    package_data={'uiautomator': ['uiautomator/libs/bundle.jar', 'uiautomator/libs/uiautomator-stub.jar']},
+    include_package_data=True,
     license='MIT',
     platforms='any',
     classifiers=(
