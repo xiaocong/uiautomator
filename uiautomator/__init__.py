@@ -833,7 +833,7 @@ class AutomatorDeviceUiObject(object):
                 else:
                     return self.jsonrpc.longClick(self.selector)
             else:
-                bounds = info["visibleBounds"]
+                bounds = info.get("visibleBounds") or info.get("bounds")
                 if corner in ["tl", "topleft"]:
                     x = (5*bounds["left"] + bounds["right"])/6
                     y = (5*bounds["top"] + bounds["bottom"])/6
