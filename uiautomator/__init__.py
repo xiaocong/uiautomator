@@ -522,6 +522,17 @@ class AutomatorDevice(object):
         '''click at arbitrary coordinates.'''
         return self.server.jsonrpc.click(x, y)
 
+    def double_click(self, x, y):
+        '''double click at arbitrary coordinates.'''
+        config = self.server.jsonrpc.getConfigurator()
+        ackTimeout, config['actionAcknowledgmentTimeout'] = config['actionAcknowledgmentTimeout'], 40
+        self.server.jsonrpc.setConfigurator(config)
+        # double click
+        self.server.jsonrpc.click(x, y), self.server.jsonrpc.click(x, y)
+        # restore previous config
+        config['actionAcknowledgmentTimeout'] = ackTimeout
+        self.server.jsonrpc.setConfigurator(config)
+
     def long_click(self, x, y):
         '''long click at arbitrary coordinates.'''
         return self.swipe(x, y, x + 1, y + 1)
@@ -814,6 +825,17 @@ class AutomatorDeviceUiObject(object):
             else:
                 return self.jsonrpc.clickAndWaitForNewWindow(self.selector, timeout)
         return _click
+
+    def double_click(self):
+        '''double click at a view.'''
+        config = self.jsonrpc.getConfigurator()
+        ackTimeout, config['actionAcknowledgmentTimeout'] = config['actionAcknowledgmentTimeout'], 40
+        self.jsonrpc.setConfigurator(config)
+        # double click
+        self.jsonrpc.click(self.selector), self.jsonrpc.click(self.selector)
+        # restore previous config
+        config['actionAcknowledgmentTimeout'] = ackTimeout
+        self.jsonrpc.setConfigurator(config)
 
     @property
     def long_click(self):
