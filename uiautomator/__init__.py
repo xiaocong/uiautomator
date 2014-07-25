@@ -257,7 +257,7 @@ class Adb(object):
 
     def cmd(self, *args):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        cmd_line = ["-s", self.device_serial()] + list(args)
+        cmd_line = ["-s", "'%s'" % self.device_serial()] + list(args)
         return self.raw_cmd(*cmd_line)
 
     def raw_cmd(self, *args):
@@ -288,7 +288,7 @@ class Adb(object):
         index = out.find(match)
         if index < 0:
             raise EnvironmentError("adb is not working.")
-        return dict([s.split() for s in out[index + len(match):].strip().splitlines() if s.strip()])
+        return dict([s.split("\t") for s in out[index + len(match):].strip().splitlines() if s.strip()])
 
     def forward(self, local_port, device_port):
         '''adb port forward. return 0 if success, else non-zero.'''

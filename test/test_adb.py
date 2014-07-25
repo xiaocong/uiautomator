@@ -67,14 +67,14 @@ class TestAdb(unittest.TestCase):
     def test_devices(self):
         adb = Adb()
         adb.raw_cmd = MagicMock()
-        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \r\n014E05DE0F02000E    device\r\n489328DKFL7DF    device", b"")
+        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \r\n014E05DE0F02000E\tdevice\r\n489328DKFL7DF\tdevice", b"")
         self.assertEqual(adb.devices(), {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
         adb.raw_cmd.assert_called_once_with("devices")
-        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \n\r014E05DE0F02000E    device\n\r489328DKFL7DF    device", b"")
+        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \n\r014E05DE0F02000E\tdevice\n\r489328DKFL7DF\tdevice", b"")
         self.assertEqual(adb.devices(), {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
-        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \r014E05DE0F02000E    device\r489328DKFL7DF    device", b"")
+        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \r014E05DE0F02000E\tdevice\r489328DKFL7DF\tdevice", b"")
         self.assertEqual(adb.devices(), {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
-        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \n014E05DE0F02000E    device\n489328DKFL7DF    device", b"")
+        adb.raw_cmd.return_value.communicate.return_value = (b"List of devices attached \n014E05DE0F02000E\tdevice\n489328DKFL7DF\tdevice", b"")
         self.assertEqual(adb.devices(), {"014E05DE0F02000E": "device", "489328DKFL7DF": "device"})
         adb.raw_cmd.return_value.communicate.return_value = (b"not match", "")
         with self.assertRaises(EnvironmentError):
@@ -109,7 +109,7 @@ class TestAdb(unittest.TestCase):
         adb.raw_cmd = MagicMock()
         args = ["a", "b", "c"]
         adb.cmd(*args)
-        adb.raw_cmd.assert_called_once_with("-s", adb.device_serial(), *args)
+        adb.raw_cmd.assert_called_once_with("-s", "'%s'" % adb.device_serial(), *args)
 
     def test_device_serial(self):
         with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
