@@ -384,6 +384,9 @@ class AutomatorServer(object):
 
     @property
     def jsonrpc(self):
+        return self.jsonrpc_wrap(timeout=int(os.environ.get("jsonrpc_timeout", 90)))
+
+    def jsonrpc_wrap(self, timeout):
         server = self
         ERROR_CODE_BASE = -32000
 
@@ -418,7 +421,7 @@ class AutomatorServer(object):
             return wrapper
 
         return JsonRPCClient(self.rpc_uri,
-                             timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)),
+                             timeout=timeout,
                              method_class=_JsonRPCMethod)
 
     def __jsonrpc(self):
@@ -739,10 +742,14 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["idle", "update"])
         def _wait(action, timeout=1000, package_name=None):
+            if timeout/1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
+                http_timeout = timeout/1000 + 5
+            else:
+                http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
             if action == "idle":
-                return self.server.jsonrpc.waitForIdle(timeout)
+                return self.server.jsonrpc_wrap(timeout=http_timeout).waitForIdle(timeout)
             elif action == "update":
-                return self.server.jsonrpc.waitForWindowUpdate(package_name, timeout)
+                return self.server.jsonrpc_wrap(timeout=http_timeout).waitForWindowUpdate(package_name, timeout)
         return _wait
 
     def exists(self, **kwargs):
@@ -918,7 +925,11 @@ class AutomatorDeviceUiObject(object):
         '''
         @param_to_property(action=["exists", "gone"])
         def _wait(action, timeout=3000):
-            method = self.jsonrpc.waitUntilGone if action == "gone" else self.jsonrpc.waitForExists
+            if timeout/1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
+                http_timeout = timeout/1000 + 5
+            else:
+                http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
+            method = self.device.server.jsonrpc_wrap(timeout=http_timeout).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
             return method(self.selector, timeout)
         return _wait
 
