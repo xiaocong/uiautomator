@@ -12,6 +12,7 @@ class TestDevice(unittest.TestCase):
         self.device = AutomatorDevice()
         self.device.server = MagicMock()
         self.device.server.jsonrpc = MagicMock()
+        self.device.server.jsonrpc_wrap = MagicMock()
 
     def test_info(self):
         self.device.server.jsonrpc.deviceInfo = MagicMock()
@@ -209,26 +210,26 @@ class TestDevice(unittest.TestCase):
         self.device.server.jsonrpc.sleep.assert_called_once_with()
 
     def test_wait_idle(self):
-        self.device.server.jsonrpc.waitForIdle = MagicMock()
-        self.device.server.jsonrpc.waitForIdle.return_value = True
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle = MagicMock()
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle.return_value = True
         self.assertTrue(self.device.wait.idle(timeout=10))
-        self.device.server.jsonrpc.waitForIdle.assert_called_once_with(10)
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle.assert_called_once_with(10)
 
-        self.device.server.jsonrpc.waitForIdle = MagicMock()
-        self.device.server.jsonrpc.waitForIdle.return_value = False
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle = MagicMock()
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle.return_value = False
         self.assertFalse(self.device.wait("idle", timeout=10))
-        self.device.server.jsonrpc.waitForIdle.assert_called_once_with(10)
+        self.device.server.jsonrpc_wrap.return_value.waitForIdle.assert_called_once_with(10)
 
     def test_wait_update(self):
-        self.device.server.jsonrpc.waitForWindowUpdate = MagicMock()
-        self.device.server.jsonrpc.waitForWindowUpdate.return_value = True
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate = MagicMock()
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate.return_value = True
         self.assertTrue(self.device.wait.update(timeout=10, package_name="android"))
-        self.device.server.jsonrpc.waitForWindowUpdate.assert_called_once_with("android", 10)
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate.assert_called_once_with("android", 10)
 
-        self.device.server.jsonrpc.waitForWindowUpdate = MagicMock()
-        self.device.server.jsonrpc.waitForWindowUpdate.return_value = False
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate = MagicMock()
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate.return_value = False
         self.assertFalse(self.device.wait("update", timeout=100, package_name="android"))
-        self.device.server.jsonrpc.waitForWindowUpdate.assert_called_once_with("android", 100)
+        self.device.server.jsonrpc_wrap.return_value.waitForWindowUpdate.assert_called_once_with("android", 100)
 
     def test_get_info_attr(self):
         info = {"test_a": 1, "test_b": "string", "displayWidth": 720, "displayHeight": 1024}
@@ -252,6 +253,7 @@ class TestDevice(unittest.TestCase):
             self.assertTrue(self.device.exists(clickable=True))
             AutomatorDeviceObject.return_value.exists = False
             self.assertFalse(self.device.exists(text="..."))
+
 
 class TestDeviceWithSerial(unittest.TestCase):
 

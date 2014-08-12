@@ -27,6 +27,7 @@ class TestDeviceObj(unittest.TestCase):
     def setUp(self):
         self.device = MagicMock()
         self.jsonrpc = self.device.server.jsonrpc = MagicMock()
+        self.jsonrpc_wrap = self.device.server.jsonrpc_wrap = MagicMock()
         self.kwargs = {"text": "text", "className": "android"}
         self.obj = AutomatorDeviceObject(self.device,
                                          Selector(**self.kwargs))
@@ -319,12 +320,12 @@ class TestDeviceObj(unittest.TestCase):
 
     def test_wait(self):
         timeout = 3000
-        self.jsonrpc.waitUntilGone.return_value = True
+        self.jsonrpc_wrap.return_value.waitUntilGone.return_value = True
         self.assertTrue(self.obj.wait.gone())
-        self.jsonrpc.waitUntilGone.assert_called_once_with(self.obj.selector, timeout)
-        self.jsonrpc.waitForExists.return_value = True
+        self.jsonrpc_wrap.return_value.waitUntilGone.assert_called_once_with(self.obj.selector, timeout)
+        self.jsonrpc_wrap.return_value.waitForExists.return_value = True
         self.assertTrue(self.obj.wait.exists(timeout=10))
-        self.jsonrpc.waitForExists.assert_called_once_with(self.obj.selector, 10)
+        self.jsonrpc_wrap.return_value.waitForExists.assert_called_once_with(self.obj.selector, 10)
 
     def test_child_by_text(self):
         self.jsonrpc.childByText.return_value = "myname"
