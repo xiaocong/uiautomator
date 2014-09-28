@@ -120,7 +120,10 @@ class JsonRPCMethod(object):
                 if result is not None:
                     result.close()
         if "error" in jsonresult and jsonresult["error"]:
-            raise JsonRPCError(jsonresult["error"]["code"], jsonresult["error"]["message"])
+            raise JsonRPCError(
+                jsonresult["error"]["code"],
+                "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
+            )
         return jsonresult["result"]
 
     def id(self):
