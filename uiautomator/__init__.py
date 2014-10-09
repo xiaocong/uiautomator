@@ -260,7 +260,10 @@ class Adb(object):
 
     def cmd(self, *args):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        cmd_line = ["-s", "'%s'" % self.device_serial()] + list(args)
+        serial = self.device_serial()
+        if serial.find(" ") > 0:  # TODO how to include special chars on command line
+            serial = "'%s'" % serial
+        cmd_line = ["-s", serial] + list(args)
         return self.raw_cmd(*cmd_line)
 
     def raw_cmd(self, *args):
