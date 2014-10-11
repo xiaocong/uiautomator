@@ -109,7 +109,14 @@ class TestAdb(unittest.TestCase):
         adb.raw_cmd = MagicMock()
         args = ["a", "b", "c"]
         adb.cmd(*args)
+        adb.raw_cmd.assert_called_once_with("-s", "%s" % adb.device_serial(), *args)
+
+        adb.device_serial.return_value = "ANDROID SERIAL"
+        adb.raw_cmd = MagicMock()
+        args = ["a", "b", "c"]
+        adb.cmd(*args)
         adb.raw_cmd.assert_called_once_with("-s", "'%s'" % adb.device_serial(), *args)
+
 
     def test_device_serial(self):
         with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
