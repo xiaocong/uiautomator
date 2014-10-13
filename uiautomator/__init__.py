@@ -31,7 +31,7 @@ try:
 except:  # to fix python setup error on Windows.
     pass
 
-__version__ = "0.1.32"
+__version__ = "0.1.33"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -120,7 +120,10 @@ class JsonRPCMethod(object):
                 if result is not None:
                     result.close()
         if "error" in jsonresult and jsonresult["error"]:
-            raise JsonRPCError(jsonresult["error"]["code"], jsonresult["error"]["message"])
+            raise JsonRPCError(
+                jsonresult["error"]["code"],
+                "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
+            )
         return jsonresult["result"]
 
     def id(self):
@@ -257,7 +260,10 @@ class Adb(object):
 
     def cmd(self, *args):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        cmd_line = ["-s", "'%s'" % self.device_serial()] + list(args)
+        serial = self.device_serial()
+        if serial.find(" ") > 0:  # TODO how to include special chars on command line
+            serial = "'%s'" % serial
+        cmd_line = ["-s", serial] + list(args)
         return self.raw_cmd(*cmd_line)
 
     def raw_cmd(self, *args):
@@ -962,7 +968,7 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
         super(AutomatorDeviceObject, self).__init__(device, selector)
 
     def child(self, **kwargs):
-        '''set chileSelector.'''
+        '''set childSelector.'''
         self.selector.child(**kwargs)
         return self
 
