@@ -208,10 +208,12 @@ class Selector(dict):
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     child_selector, from_parent = child, sibling
 
@@ -975,13 +977,17 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def child(self, **kwargs):
         '''set childSelector.'''
-        self.selector.child(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().child(**kwargs)
+        )
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector.sibling(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().sibling(**kwargs)
+        )
 
     child_selector, from_parent = child, sibling
 
