@@ -36,7 +36,8 @@ class TestAdb(unittest.TestCase):
                 self.assertEqual(adb_obj.adb(), adb_path)
                 exists.assert_called_once_with(adb_path)
                 self.assertEqual(adb_obj.adb(), adb_path)
-                exists.assert_called_once_with(adb_path) # the second call will return the __adb_cmd directly
+                # the second call will return the __adb_cmd directly
+                exists.assert_called_once_with(adb_path)
 
                 os.name = "nt"  # linux
                 adb_obj = Adb()
@@ -117,6 +118,22 @@ class TestAdb(unittest.TestCase):
         adb.cmd(*args)
         adb.raw_cmd.assert_called_once_with("-s", "'%s'" % adb.device_serial(), *args)
 
+    def test_adb_cmd_server_host(self):
+        adb = Adb(adb_server_host="localhost", adb_server_port=5037)
+        adb.device_serial = MagicMock()
+        adb.device_serial.return_value = "ANDROID_SERIAL"
+        adb.raw_cmd = MagicMock()
+        args = ["a", "b", "c"]
+        adb.cmd(*args)
+        adb.raw_cmd.assert_called_once_with("-H", "localhost", "-P", "5037", "-s", "%s" % adb.device_serial(), *args)
+
+        adb = Adb(adb_server_host="localhost")
+        adb.device_serial = MagicMock()
+        adb.device_serial.return_value = "ANDROID_SERIAL"
+        adb.raw_cmd = MagicMock()
+        args = ["a", "b", "c"]
+        adb.cmd(*args)
+        adb.raw_cmd.assert_called_once_with("-H", "localhost", "-s", "%s" % adb.device_serial(), *args)
 
     def test_device_serial(self):
         with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
