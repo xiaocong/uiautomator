@@ -208,10 +208,12 @@ class Selector(dict):
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     child_selector, from_parent = child, sibling
 
@@ -234,9 +236,11 @@ def point(x=0, y=0):
 
 class Adb(object):
 
-    def __init__(self, serial=None):
+    def __init__(self, serial=None, adb_server_host=None, adb_server_port=None):
         self.__adb_cmd = None
         self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
+        self.adb_server_host = adb_server_host
+        self.adb_server_port = adb_server_port
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -264,6 +268,10 @@ class Adb(object):
         if serial.find(" ") > 0:  # TODO how to include special chars on command line
             serial = "'%s'" % serial
         cmd_line = ["-s", serial] + list(args)
+        if self.adb_server_port:  # add -P argument
+            cmd_line = ["-P", str(self.adb_server_port)] + cmd_line
+        if self.adb_server_host:  # add -H argument
+            cmd_line = ["-H", self.adb_server_host] + cmd_line
         return self.raw_cmd(*cmd_line)
 
     def raw_cmd(self, *args):
@@ -969,13 +977,17 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def child(self, **kwargs):
         '''set childSelector.'''
-        self.selector.child(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().child(**kwargs)
+        )
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector.sibling(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().sibling(**kwargs)
+        )
 
     child_selector, from_parent = child, sibling
 
