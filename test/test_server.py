@@ -80,7 +80,7 @@ class TestAutomatorServer(unittest.TestCase):
             server.start = MagicMock()
             server.stop = MagicMock()
             self.assertEqual("ok", server.jsonrpc.any_method())
-            server.start.assert_called_once_with()
+            server.start.assert_called_once_with(timeout=30)
         with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
             returns = [JsonRPCError(-32000-1, "error msg"), "ok"]
             def side_effect():
