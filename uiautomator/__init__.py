@@ -414,7 +414,7 @@ class AutomatorServer(object):
                 except (URLError, socket.error, HTTPException) as e:
                     if restart:
                         server.stop()
-                        server.start()
+                        server.start(timeout=30)
                         return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
                     else:
                         raise
@@ -441,7 +441,7 @@ class AutomatorServer(object):
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
-    def start(self):
+    def start(self, timeout=5):
         files = self.push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
@@ -449,7 +449,6 @@ class AutomatorServer(object):
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
 
-        timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
