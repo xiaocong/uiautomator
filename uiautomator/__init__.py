@@ -271,8 +271,8 @@ class Adb(object):
     def raw_cmd(self, *args):
         '''adb command. return the subprocess.Popen object.'''
         cmd_line = [self.adb(), "-H", self.adbHost, "-P", self.adbPort] + list(args)
-        print "cmd_line: "
-        print cmd_line
+        #print "cmd_line: "
+        #print cmd_line
         #if os.name != "nt":
         #    cmd_line = [" ".join(cmd_line)]
         return subprocess.Popen(cmd_line, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
