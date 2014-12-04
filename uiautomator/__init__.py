@@ -234,9 +234,11 @@ def point(x=0, y=0):
 
 class Adb(object):
 
-    def __init__(self, serial=None):
+    def __init__(self, serial=None, adbHost=None, adbPort=None):
         self.__adb_cmd = None
         self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
+        self.adbHost = str(adbHost if adbHost else 'localhost')
+        self.adbPort = str(adbPort if adbPort else '5037')
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -268,10 +270,12 @@ class Adb(object):
 
     def raw_cmd(self, *args):
         '''adb command. return the subprocess.Popen object.'''
-        cmd_line = [self.adb()] + list(args)
-        if os.name != "nt":
-            cmd_line = [" ".join(cmd_line)]
-        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd_line = [self.adb(), "-H", self.adbHost, "-P", self.adbPort] + list(args)
+        print "cmd_line: "
+        print cmd_line
+        #if os.name != "nt":
+        #    cmd_line = [" ".join(cmd_line)]
+        return subprocess.Popen(cmd_line, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def device_serial(self):
         devices = self.devices()
@@ -354,9 +358,9 @@ class AutomatorServer(object):
     }
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
-    def __init__(self, serial=None, local_port=None):
+    def __init__(self, serial=None, local_port=None, adbHost=None, adbPort=None):
         self.uiautomator_process = None
-        self.adb = Adb(serial=serial)
+        self.adb = Adb(serial=serial, adbHost=adbHost, adbPort=adbPort)
         self.device_port = 9008
         if local_port:
             self.local_port = local_port
@@ -506,8 +510,8 @@ class AutomatorDevice(object):
         "height": "displayHeight"
     }
 
-    def __init__(self, serial=None, local_port=None):
-        self.server = AutomatorServer(serial=serial, local_port=local_port)
+    def __init__(self, serial=None, local_port=None, adbHost=None, adbPort=None):
+        self.server = AutomatorServer(serial=serial, local_port=local_port, adbHost=adbHost, adbPort=adbPort)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
