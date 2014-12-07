@@ -41,6 +41,17 @@ d(text="Clock").click()
   d = Device('014E05DE0F02000E')
   ```
 
+- Speficy the adb server host and port running on other computer
+
+    Although adb supports `-a` option since SDK 4.3, but now it has a bug on it. The only way to start adb server listenning on all interfaces instead of localhost, is `adb -a -P 5037 fork-server server &`
+
+  ```python
+  from uiautomator import Device
+
+  d = Device('014E05DE0F02000E', adb_server_host='192.168.1.68', adb_server_port=5037)
+  ```
+
+---
 **Notes**: In below examples, we use `d` represent the android device object.
 
 ### Table of Contents
