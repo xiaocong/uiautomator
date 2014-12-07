@@ -31,7 +31,7 @@ try:
 except:  # to fix python setup error on Windows.
     pass
 
-__version__ = "0.1.33"
+__version__ = "0.1.34"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -208,10 +208,12 @@ class Selector(dict):
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     child_selector, from_parent = child, sibling
 
@@ -234,9 +236,11 @@ def point(x=0, y=0):
 
 class Adb(object):
 
-    def __init__(self, serial=None):
+    def __init__(self, serial=None, adb_server_host=None, adb_server_port=None):
         self.__adb_cmd = None
         self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
+        self.adb_server_host = adb_server_host
+        self.adb_server_port = adb_server_port
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -264,6 +268,10 @@ class Adb(object):
         if serial.find(" ") > 0:  # TODO how to include special chars on command line
             serial = "'%s'" % serial
         cmd_line = ["-s", serial] + list(args)
+        if self.adb_server_port:  # add -P argument
+            cmd_line = ["-P", str(self.adb_server_port)] + cmd_line
+        if self.adb_server_host:  # add -H argument
+            cmd_line = ["-H", self.adb_server_host] + cmd_line
         return self.raw_cmd(*cmd_line)
 
     def raw_cmd(self, *args):
@@ -354,9 +362,9 @@ class AutomatorServer(object):
     }
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
-    def __init__(self, serial=None, local_port=None):
+    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
         self.uiautomator_process = None
-        self.adb = Adb(serial=serial)
+        self.adb = Adb(serial=serial, adb_server_host=adb_server_host, adb_server_port=adb_server_port)
         self.device_port = 9008
         if local_port:
             self.local_port = local_port
@@ -406,7 +414,7 @@ class AutomatorServer(object):
                 except (URLError, socket.error, HTTPException) as e:
                     if restart:
                         server.stop()
-                        server.start()
+                        server.start(timeout=30)
                         return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
                     else:
                         raise
@@ -433,7 +441,7 @@ class AutomatorServer(object):
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
-    def start(self):
+    def start(self, timeout=5):
         files = self.push()
         cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
                                    files,
@@ -441,7 +449,6 @@ class AutomatorServer(object):
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
 
-        timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
@@ -506,8 +513,11 @@ class AutomatorDevice(object):
         "height": "displayHeight"
     }
 
-    def __init__(self, serial=None, local_port=None):
-        self.server = AutomatorServer(serial=serial, local_port=local_port)
+    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
+        self.server = AutomatorServer(serial=serial,
+                                      local_port=local_port,
+                                      adb_server_host=adb_server_host,
+                                      adb_server_port=adb_server_port)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -969,13 +979,17 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def child(self, **kwargs):
         '''set childSelector.'''
-        self.selector.child(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().child(**kwargs)
+        )
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector.sibling(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().sibling(**kwargs)
+        )
 
     child_selector, from_parent = child, sibling
 

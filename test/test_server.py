@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, patch, call, mock_open
+from mock import MagicMock, patch, call
 from uiautomator import AutomatorServer, JsonRPCError
 
 
@@ -17,7 +17,7 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_local_port(self):
         self.assertEqual(AutomatorServer("1234", 9010).local_port, 9010)
-        self.Adb.assert_called_once_with(serial="1234")
+        self.Adb.assert_called_once_with(serial="1234", adb_server_host=None, adb_server_port=None)
 
     def test_local_port_forwarded(self):
         self.Adb.return_value.forward_list.return_value = [
@@ -80,7 +80,7 @@ class TestAutomatorServer(unittest.TestCase):
             server.start = MagicMock()
             server.stop = MagicMock()
             self.assertEqual("ok", server.jsonrpc.any_method())
-            server.start.assert_called_once_with()
+            server.start.assert_called_once_with(timeout=30)
         with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
             returns = [JsonRPCError(-32000-1, "error msg"), "ok"]
             def side_effect():

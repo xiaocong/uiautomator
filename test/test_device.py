@@ -259,5 +259,5 @@ class TestDeviceWithSerial(unittest.TestCase):
 
     def test_serial(self):
         with patch('uiautomator.AutomatorServer') as AutomatorServer:
-            device = AutomatorDevice("abcdefhijklmn")
-            AutomatorServer.assert_called_once_with(serial="abcdefhijklmn", local_port=None)
+            AutomatorDevice("abcdefhijklmn")
+            AutomatorServer.assert_called_once_with(serial="abcdefhijklmn", local_port=None, adb_server_host=None, adb_server_port=None)
