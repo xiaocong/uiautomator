@@ -362,9 +362,9 @@ class AutomatorServer(object):
     }
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
-    def __init__(self, serial=None, local_port=None):
+    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
         self.uiautomator_process = None
-        self.adb = Adb(serial=serial)
+        self.adb = Adb(serial=serial, adb_server_host=adb_server_host, adb_server_port=adb_server_port)
         self.device_port = 9008
         if local_port:
             self.local_port = local_port
@@ -513,8 +513,11 @@ class AutomatorDevice(object):
         "height": "displayHeight"
     }
 
-    def __init__(self, serial=None, local_port=None):
-        self.server = AutomatorServer(serial=serial, local_port=local_port)
+    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
+        self.server = AutomatorServer(serial=serial,
+                                      local_port=local_port,
+                                      adb_server_host=adb_server_host,
+                                      adb_server_port=adb_server_port)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))

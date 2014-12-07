@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from mock import MagicMock, patch, call, mock_open
+from mock import MagicMock, patch, call
 from uiautomator import AutomatorServer, JsonRPCError
 
 
@@ -17,7 +17,7 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_local_port(self):
         self.assertEqual(AutomatorServer("1234", 9010).local_port, 9010)
-        self.Adb.assert_called_once_with(serial="1234")
+        self.Adb.assert_called_once_with(serial="1234", adb_server_host=None, adb_server_port=None)
 
     def test_local_port_forwarded(self):
         self.Adb.return_value.forward_list.return_value = [
