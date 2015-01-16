@@ -14,6 +14,10 @@ import socket
 import re
 import collections
 
+DBG = os.environ.get('UIAUTOMATOR_DBG')
+DEVICE_PORT=int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9888'))
+LOCAL_PORT=int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9888'))
+
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
 
@@ -31,10 +35,9 @@ try:
 except:  # to fix python setup error on Windows.
     pass
 
-__version__ = "0.1.34"
+__version__ = "0.1.33"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
-
 
 def U(x):
     if sys.version_info.major == 2:
@@ -101,6 +104,7 @@ class JsonRPCMethod(object):
             data["params"] = args
         elif kwargs:
             data["params"] = kwargs
+        jsonresult = {"result":""}
         if os.name == "nt":
             res = self.pool.urlopen("POST",
                                     self.url,
@@ -111,6 +115,7 @@ class JsonRPCMethod(object):
         else:
             result = None
             try:
+                if DBG: sys.stderr.write(">> "+self.url + " data: " + str(data) + "\n")
                 req = urllib2.Request(self.url,
                                       json.dumps(data).encode("utf-8"),
                                       {"Content-type": "application/json"})
@@ -124,6 +129,7 @@ class JsonRPCMethod(object):
                 jsonresult["error"]["code"],
                 "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
             )
+        if DBG: sys.stderr.write(">> result: "+str(jsonresult) + "\n")
         return jsonresult["result"]
 
     def id(self):
@@ -208,12 +214,10 @@ class Selector(dict):
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
-        return self
 
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
-        return self
 
     child_selector, from_parent = child, sibling
 
@@ -233,14 +237,34 @@ def intersect(rect1, rect2):
 def point(x=0, y=0):
     return {"x": x, "y": y}
 
+class DBG_Popen(subprocess.Popen):
+    def __init__(self, *args, **kwargs):
+        res = subprocess.Popen.__init__(self, *args, **kwargs)
+        if DBG:
+            self.cached_stdout, self.cached_stderr = subprocess.Popen.communicate(self)
+            if self.cached_stdout:
+                sys.stdout.write(self.cached_stdout)
+                sys.stdout.write("\n")
+            if self.cached_stderr:
+                sys.stderr.write(self.cached_stderr)
+                sys.stderr.write("\n")
+
+    def communicate(self, *args):
+        return (self.cached_stdout, self.cached_stderr) if DBG else subprocess.Popen.communicate(self, *args)
 
 class Adb(object):
 
-    def __init__(self, serial=None, adb_server_host=None, adb_server_port=None):
+    def __init__(self, serial=None, adbHost=None, adbPort=None):
         self.__adb_cmd = None
         self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
-        self.adb_server_host = adb_server_host
-        self.adb_server_port = adb_server_port
+        self.adbHost = str(adbHost if adbHost else 'localhost')
+        self.adbPort = str(adbPort if adbPort else '5037')
+        self.adbHostPortOptions = []
+        if self.adbHost != 'localhost' and self.adbHost != '127.0.0.1':
+            self.adbHostPortOptions += ["-H", self.adbHost]
+        elif self.adbPort != '5037':
+            self.adbHostPortOptions += ["-P", self.adbPort]
+        self.device_serial(mustGet=False)
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -262,37 +286,31 @@ class Adb(object):
             self.__adb_cmd = adb_cmd
         return self.__adb_cmd
 
-    def cmd(self, *args):
+    def cmd(self, *args, **kwargs):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        serial = self.device_serial()
-        if serial.find(" ") > 0:  # TODO how to include special chars on command line
-            serial = "'%s'" % serial
-        cmd_line = ["-s", serial] + list(args)
-        if self.adb_server_port:  # add -P argument
-            cmd_line = ["-P", str(self.adb_server_port)] + cmd_line
-        if self.adb_server_host:  # add -H argument
-            cmd_line = ["-H", self.adb_server_host] + cmd_line
-        return self.raw_cmd(*cmd_line)
+        return self.raw_cmd(*["-s", self.device_serial()] + list(args), **kwargs)
 
-    def raw_cmd(self, *args):
+    def raw_cmd(self, *args, **kwargs):
         '''adb command. return the subprocess.Popen object.'''
-        cmd_line = [self.adb()] + list(args)
-        if os.name != "nt":
-            cmd_line = [" ".join(cmd_line)]
-        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    def device_serial(self):
-        devices = self.devices()
-        if not devices:
-            raise EnvironmentError("Device not attached.")
-
-        if self.default_serial:
-            if self.default_serial not in devices:
-                raise EnvironmentError("Device %s not connected!" % self.default_serial)
-        elif len(devices) == 1:
-            self.default_serial = list(devices.keys())[0]
+        cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
+        if DBG: sys.stderr.write(">> exec: " + str(cmd_line) + "\n")
+        #if os.name != "nt":
+        #    cmd_line = [" ".join(cmd_line)]
+        if DBG and not (kwargs.has_key("DBG_NoWaitOutput") and kwargs["DBG_NoWaitOutput"]):
+            return DBG_Popen(cmd_line, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
-            raise EnvironmentError("Multiple devices attached but default android serial not set.")
+            return subprocess.Popen(cmd_line, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def device_serial(self, mustGet=True):
+        if not self.default_serial:
+            devices = self.devices()
+            if not devices:
+                if mustGet: raise EnvironmentError("Device not attached.")
+            else:
+                if len(devices) == 1:
+                    self.default_serial = list(devices.keys())[0]
+                else:
+                    if mustGet: raise EnvironmentError("Multiple devices attached but default android serial not set.")
         return self.default_serial
 
     def devices(self):
@@ -322,17 +340,17 @@ class Adb(object):
         return [match.group(i) for i in range(4)]
 
 
-_init_local_port = 9007
+_init_local_port = LOCAL_PORT-1
 
 
-def next_local_port():
+def next_local_port(adbHost=None):
     def is_port_listening(port):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = s.connect_ex(('127.0.0.1', port))
+        result = s.connect_ex((str(adbHost) if adbHost else '127.0.0.1', port))
         s.close()
         return result == 0
     global _init_local_port
-    _init_local_port = _init_local_port + 1 if _init_local_port < 32764 else 9008
+    _init_local_port = _init_local_port + 1 if _init_local_port < 32764 else LOCAL_PORT
     while is_port_listening(_init_local_port):
         _init_local_port += 1
     return _init_local_port
@@ -362,10 +380,10 @@ class AutomatorServer(object):
     }
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
-    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
+    def __init__(self, serial=None, local_port=None, device_port=None, adbHost=None, adbPort=None):
         self.uiautomator_process = None
-        self.adb = Adb(serial=serial, adb_server_host=adb_server_host, adb_server_port=adb_server_port)
-        self.device_port = 9008
+        self.adb = Adb(serial=serial, adbHost=adbHost, adbPort=adbPort)
+        self.device_port = int(device_port) if device_port else DEVICE_PORT 
         if local_port:
             self.local_port = local_port
         else:
@@ -375,9 +393,9 @@ class AutomatorServer(object):
                         self.local_port = int(lp[4:])
                         break
                 else:
-                    self.local_port = next_local_port()
+                    self.local_port = next_local_port(adbHost)
             except:
-                self.local_port = next_local_port()
+                self.local_port = next_local_port(adbHost)
 
     def push(self):
         base_dir = os.path.dirname(__file__)
@@ -414,7 +432,7 @@ class AutomatorServer(object):
                 except (URLError, socket.error, HTTPException) as e:
                     if restart:
                         server.stop()
-                        server.start(timeout=30)
+                        server.start()
                         return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
                     else:
                         raise
@@ -441,14 +459,12 @@ class AutomatorServer(object):
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
-    def start(self, timeout=5):
+    def start(self):
         files = self.push()
-        cmd = list(itertools.chain(["shell", "uiautomator", "runtest"],
-                                   files,
-                                   ["-c", "com.github.uiautomatorstub.Stub"]))
-        self.uiautomator_process = self.adb.cmd(*cmd)
+        self.uiautomator_process = self.adb.cmd(*['shell', 'uiautomator runtest ' + ' '.join(files) + ' -c com.github.uiautomatorstub.Stub -e port '+str(self.device_port)+' > /data/local/tmp/uiautomator.log'], DBG_NoWaitOutput=True)
         self.adb.forward(self.local_port, self.device_port)
 
+        timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
@@ -491,11 +507,11 @@ class AutomatorServer(object):
 
     @property
     def stop_uri(self):
-        return "http://localhost:%d/stop" % self.local_port
+        return "http://"+self.adb.adbHost+":%d/stop" % self.local_port
 
     @property
     def rpc_uri(self):
-        return "http://localhost:%d/jsonrpc/0" % self.local_port
+        return "http://"+self.adb.adbHost+":%d/jsonrpc/0" % self.local_port
 
 
 class AutomatorDevice(object):
@@ -513,11 +529,8 @@ class AutomatorDevice(object):
         "height": "displayHeight"
     }
 
-    def __init__(self, serial=None, local_port=None, adb_server_host=None, adb_server_port=None):
-        self.server = AutomatorServer(serial=serial,
-                                      local_port=local_port,
-                                      adb_server_host=adb_server_host,
-                                      adb_server_port=adb_server_port)
+    def __init__(self, serial=None, local_port=None, adbHost=None, adbPort=None):
+        self.server = AutomatorServer(serial=serial, local_port=local_port, adbHost=adbHost, adbPort=adbPort)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -979,17 +992,13 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def child(self, **kwargs):
         '''set childSelector.'''
-        return AutomatorDeviceObject(
-            self.device,
-            self.selector.clone().child(**kwargs)
-        )
+        self.selector.child(**kwargs)
+        return self
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        return AutomatorDeviceObject(
-            self.device,
-            self.selector.clone().sibling(**kwargs)
-        )
+        self.selector.sibling(**kwargs)
+        return self
 
     child_selector, from_parent = child, sibling
 
