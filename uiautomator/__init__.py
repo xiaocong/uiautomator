@@ -35,9 +35,10 @@ try:
 except:  # to fix python setup error on Windows.
     pass
 
-__version__ = "0.1.33"
+__version__ = "0.1.34"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
+
 
 def U(x):
     if sys.version_info.major == 2:
@@ -214,10 +215,12 @@ class Selector(dict):
     def child(self, **kwargs):
         self[self.__childOrSibling].append("child")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
+        return self
 
     child_selector, from_parent = child, sibling
 
@@ -432,7 +435,7 @@ class AutomatorServer(object):
                 except (URLError, socket.error, HTTPException) as e:
                     if restart:
                         server.stop()
-                        server.start()
+                        server.start(timeout=30)
                         return _JsonRPCMethod(url, method, timeout, False)(*args, **kwargs)
                     else:
                         raise
@@ -459,12 +462,11 @@ class AutomatorServer(object):
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
-    def start(self):
+    def start(self, timeout=5):
         files = self.push()
         self.uiautomator_process = self.adb.cmd(*['shell', 'uiautomator runtest ' + ' '.join(files) + ' -c com.github.uiautomatorstub.Stub -e port '+str(self.device_port)+' > /data/local/tmp/uiautomator.log'], DBG_NoWaitOutput=True)
         self.adb.forward(self.local_port, self.device_port)
 
-        timeout = 5
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
@@ -992,13 +994,17 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def child(self, **kwargs):
         '''set childSelector.'''
-        self.selector.child(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().child(**kwargs)
+        )
 
     def sibling(self, **kwargs):
         '''set fromParent selector.'''
-        self.selector.sibling(**kwargs)
-        return self
+        return AutomatorDeviceObject(
+            self.device,
+            self.selector.clone().sibling(**kwargs)
+        )
 
     child_selector, from_parent = child, sibling
 
