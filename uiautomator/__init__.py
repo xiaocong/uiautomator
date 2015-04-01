@@ -7,14 +7,15 @@ import sys
 import os
 import subprocess
 import time
+import itertools
 import json
 import hashlib
 import socket
 import re
 import collections
 
-DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9888'))
-LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9888'))
+DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
+LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
@@ -247,9 +248,8 @@ class Adb(object):
         self.adbHostPortOptions = []
         if self.adb_server_host not in ['localhost', '127.0.0.1']:
             self.adbHostPortOptions += ["-H", self.adb_server_host]
-        elif self.adb_server_port != '5037':
+        if self.adb_server_port != '5037':
             self.adbHostPortOptions += ["-P", self.adb_server_port]
-        self.device_serial(mustGet=False)
 
     def adb(self):
         if self.__adb_cmd is None:
@@ -273,28 +273,31 @@ class Adb(object):
 
     def cmd(self, *args, **kwargs):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        return self.raw_cmd(*["-s", self.device_serial()] + list(args), **kwargs)
+        serial = self.device_serial()
+        if serial:
+            if " " in serial:  # TODO how to include special chars on command line
+                serial = "'%s'" % serial
+            return self.raw_cmd(*["-s", serial] + list(args))
+        else:
+            return self.raw_cmd(*args)
 
-    def raw_cmd(self, *args, **kwargs):
+    def raw_cmd(self, *args):
         '''adb command. return the subprocess.Popen object.'''
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
-        print cmd_line
-        return subprocess.Popen(cmd_line, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    def device_serial(self, mustGet=True):
+    def device_serial(self):
         if not self.default_serial:
             devices = self.devices()
-            if not devices:
-                if mustGet:
-                    raise EnvironmentError("Device not attached.")
-            else:
-                if len(devices) == 1:
+            if devices:
+                if len(devices) is 1:
                     self.default_serial = list(devices.keys())[0]
                 else:
-                    if mustGet:
-                        raise EnvironmentError("Multiple devices attached but default android serial not set.")
+                    raise EnvironmentError("Multiple devices attached but default android serial not set.")
+            else:
+                raise EnvironmentError("Device not attached.")
         return self.default_serial
 
     def devices(self):
@@ -445,7 +448,12 @@ class AutomatorServer(object):
 
     def start(self, timeout=5):
         files = self.push()
-        self.uiautomator_process = self.adb.cmd(*['shell', 'uiautomator runtest ' + ' '.join(files) + ' -c com.github.uiautomatorstub.Stub -e port '+str(self.device_port)+' > /data/local/tmp/uiautomator.log'], DBG_NoWaitOutput=True)
+        cmd = list(itertools.chain(
+            ["shell", "uiautomator", "runtest"],
+            files,
+            ["-c", "com.github.uiautomatorstub.Stub"]
+        ))
+        self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
 
         while not self.alive and timeout > 0:
@@ -490,11 +498,11 @@ class AutomatorServer(object):
 
     @property
     def stop_uri(self):
-        return "http://"+self.adb.adbHost+":%d/stop" % self.local_port
+        return "http://%s:%d/stop" % (self.adb.adb_server_host, self.local_port)
 
     @property
     def rpc_uri(self):
-        return "http://"+self.adb.adbHost+":%d/jsonrpc/0" % self.local_port
+        return "http://%s:%d/jsonrpc/0" % (self.adb.adb_server_host, self.local_port)
 
 
 class AutomatorDevice(object):
