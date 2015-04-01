@@ -4,6 +4,7 @@
 import unittest
 from mock import MagicMock, patch
 import os
+import subprocess
 from uiautomator import Adb
 
 
@@ -120,20 +121,36 @@ class TestAdb(unittest.TestCase):
 
     def test_adb_cmd_server_host(self):
         adb = Adb(adb_server_host="localhost", adb_server_port=5037)
+        adb.adb = MagicMock()
+        adb.adb.return_value = "adb"
         adb.device_serial = MagicMock()
         adb.device_serial.return_value = "ANDROID_SERIAL"
-        adb.raw_cmd = MagicMock()
         args = ["a", "b", "c"]
-        adb.cmd(*args)
-        adb.raw_cmd.assert_called_once_with("-H", "localhost", "-P", "5037", "-s", "%s" % adb.device_serial(), *args)
+        with patch("subprocess.Popen") as Popen:
+            os.name = "nt"
+            adb.raw_cmd(*args)
+            Popen.assert_called_once_with(
+                [adb.adb()] + args,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
 
-        adb = Adb(adb_server_host="localhost")
+        adb = Adb(adb_server_host="test.com", adb_server_port=1000)
+        adb.adb = MagicMock()
+        adb.adb.return_value = "adb"
         adb.device_serial = MagicMock()
         adb.device_serial.return_value = "ANDROID_SERIAL"
-        adb.raw_cmd = MagicMock()
         args = ["a", "b", "c"]
-        adb.cmd(*args)
-        adb.raw_cmd.assert_called_once_with("-H", "localhost", "-s", "%s" % adb.device_serial(), *args)
+        with patch("subprocess.Popen") as Popen:
+            os.name = "posix"
+            adb.raw_cmd(*args)
+            Popen.assert_called_once_with(
+                [" ".join([adb.adb()] + ["-H", "test.com", "-P", "1000"] + args)],
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
 
     def test_device_serial(self):
         with patch.dict('os.environ', {'ANDROID_SERIAL': "ABCDEF123456"}):
@@ -150,8 +167,7 @@ class TestAdb(unittest.TestCase):
             adb = Adb()
             adb.devices = MagicMock()
             adb.devices.return_value = {"ABCDEF123456": "device", "123456ABCDEF": "device"}
-            with self.assertRaises(EnvironmentError):
-                adb.device_serial()
+            self.assertEqual(adb.device_serial(), "HIJKLMN098765")
         with patch.dict('os.environ', {}, clear=True):
             adb = Adb()
             adb.devices = MagicMock()
@@ -162,7 +178,6 @@ class TestAdb(unittest.TestCase):
             adb = Adb()
             adb.devices = MagicMock()
             adb.devices.return_value = {"ABCDEF123456": "device"}
-            print(adb.devices())
             self.assertEqual(adb.device_serial(), "ABCDEF123456")
 
         with self.assertRaises(EnvironmentError):
