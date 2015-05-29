@@ -678,9 +678,11 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 
 - Xiaocong He ([@xiaocong][])
 - Yuanyuan Zou ([@yuanyuan][])
+- Qian Jin ([@QianJin2013][])
 
 [@xiaocong]: https://github.com/xiaocong
 [@yuanyuan]: https://github.com/yuanyuanzou
+[@QianJin2013]: https://github.com/QianJin2013
 
 ## Issues & Discussion
 
