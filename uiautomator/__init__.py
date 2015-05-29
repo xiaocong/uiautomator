@@ -91,7 +91,10 @@ class JsonRPCError(Exception):
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
-        pool = urllib3.PoolManager()
+        try:
+            pool = urllib3.PoolManager()
+        except:
+            pass
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
