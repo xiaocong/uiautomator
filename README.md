@@ -1,6 +1,8 @@
 uiautomator
 ===========
 
+[![Join the chat at https://gitter.im/xiaocong/uiautomator](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/xiaocong/uiautomator?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![build](https://api.travis-ci.org/xiaocong/uiautomator.png?branch=master)](https://travis-ci.org/xiaocong/uiautomator)
 [![Coverage Status](https://coveralls.io/repos/xiaocong/uiautomator/badge.png?branch=master)](https://coveralls.io/r/xiaocong/uiautomator?branch=master)
 [![pypi](https://badge.fury.io/py/uiautomator.png)](http://badge.fury.io/py/uiautomator)
