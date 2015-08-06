@@ -947,18 +947,22 @@ class AutomatorDeviceUiObject(object):
     @property
     def swipe(self):
         '''
-        Perform swipe action.
+        Perform swipe action. if device platform greater than API 18, percent can be used and value between 0 and 1
         Usages:
         d().swipe.right()
         d().swipe.left(steps=10)
         d().swipe.up(steps=10)
         d().swipe.down()
         d().swipe("right", steps=20)
+        d().swipe("right", percent=0.5,steps=20)
         '''
         @param_to_property(direction=["up", "down", "right", "left"])
-        def _swipe(direction="left", steps=10):
-            return self.jsonrpc.swipe(self.selector, direction, steps)
-        return _swipe
+        def _swipe(direction="left", percent=1,steps=10):
+            if percent==1:
+                return self.jsonrpc.swipe(self.selector, direction, steps)
+            else:
+                return self.jsonrpc.swipe(self.selector,direction,percent,steps)
+        return _swip
 
     @property
     def wait(self):
