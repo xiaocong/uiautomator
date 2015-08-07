@@ -34,7 +34,7 @@ try:
 except:  # to fix python setup error on Windows.
     pass
 
-__version__ = "0.1.35"
+__version__ = "0.2.0"
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
@@ -91,7 +91,10 @@ class JsonRPCError(Exception):
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
-        pool = urllib3.PoolManager()
+        try:
+            pool = urllib3.PoolManager()
+        except:
+            pass
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
@@ -327,7 +330,7 @@ class Adb(object):
         return [match.group(i) for i in range(4)]
 
 
-_init_local_port = LOCAL_PORT-1
+_init_local_port = LOCAL_PORT - 1
 
 
 def next_local_port(adbHost=None):
@@ -365,6 +368,9 @@ class AutomatorServer(object):
         "bundle.jar": "libs/bundle.jar",
         "uiautomator-stub.jar": "libs/uiautomator-stub.jar"
     }
+
+    __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test.apk"]
+
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
     def __init__(self, serial=None, local_port=None, device_port=None, adb_server_host=None, adb_server_port=None):
@@ -391,15 +397,10 @@ class AutomatorServer(object):
             self.adb.cmd("push", filename, "/data/local/tmp/").wait()
         return list(self.__jar_files.keys())
 
-    def download(self, filename, url):
-        with open(filename, 'wb') as file:
-            res = None
-            try:
-                res = urllib2.urlopen(url)
-                file.write(res.read())
-            finally:
-                if res is not None:
-                    res.close()
+    def install(self):
+        base_dir = os.path.dirname(__file__)
+        for apk in self.__apk_files:
+            self.adb.cmd("install", os.path.join(base_dir, apk)).wait()
 
     @property
     def jsonrpc(self):
@@ -446,13 +447,27 @@ class AutomatorServer(object):
     def __jsonrpc(self):
         return JsonRPCClient(self.rpc_uri, timeout=int(os.environ.get("JSONRPC_TIMEOUT", 90)))
 
+    def sdk_version(self):
+        '''sdk version of connected device.'''
+        sdk = self.adb.cmd("shell", "getprop", "ro.build.version.sdk").communicate()[0].decode("utf-8").strip()
+        try:
+            return int(sdk)
+        except:
+            return 0
+
     def start(self, timeout=5):
-        files = self.push()
-        cmd = list(itertools.chain(
-            ["shell", "uiautomator", "runtest"],
-            files,
-            ["-c", "com.github.uiautomatorstub.Stub"]
-        ))
+        if self.sdk_version() < 18:
+            files = self.push()
+            cmd = list(itertools.chain(
+                ["shell", "uiautomator", "runtest"],
+                files,
+                ["-c", "com.github.uiautomatorstub.Stub"]
+            ))
+        else:
+            self.install()
+            cmd = ["shell", "am", "instrument", "-w",
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
+
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
 
@@ -767,8 +782,8 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["idle", "update"])
         def _wait(action, timeout=1000, package_name=None):
-            if timeout/1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
-                http_timeout = timeout/1000 + 5
+            if timeout / 1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
+                http_timeout = timeout / 1000 + 5
             else:
                 http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
             if action == "idle":
@@ -867,14 +882,14 @@ class AutomatorDeviceUiObject(object):
             else:
                 bounds = info.get("visibleBounds") or info.get("bounds")
                 if corner in ["tl", "topleft"]:
-                    x = (5*bounds["left"] + bounds["right"])/6
-                    y = (5*bounds["top"] + bounds["bottom"])/6
+                    x = (5 * bounds["left"] + bounds["right"]) / 6
+                    y = (5 * bounds["top"] + bounds["bottom"]) / 6
                 elif corner in ["br", "bottomright"]:
-                    x = (bounds["left"] + 5*bounds["right"])/6
-                    y = (bounds["top"] + 5*bounds["bottom"])/6
+                    x = (bounds["left"] + 5 * bounds["right"]) / 6
+                    y = (bounds["top"] + 5 * bounds["bottom"]) / 6
                 else:
-                    x = (bounds["left"] + bounds["right"])/2
-                    y = (bounds["top"] + bounds["bottom"])/2
+                    x = (bounds["left"] + bounds["right"]) / 2
+                    y = (bounds["top"] + bounds["bottom"]) / 2
                 return self.device.long_click(x, y)
         return _long_click
 
@@ -927,17 +942,21 @@ class AutomatorDeviceUiObject(object):
     @property
     def swipe(self):
         '''
-        Perform swipe action.
+        Perform swipe action. if device platform greater than API 18, percent can be used and value between 0 and 1
         Usages:
         d().swipe.right()
         d().swipe.left(steps=10)
         d().swipe.up(steps=10)
         d().swipe.down()
         d().swipe("right", steps=20)
+        d().swipe("right", steps=20, percent=0.5)
         '''
         @param_to_property(direction=["up", "down", "right", "left"])
-        def _swipe(direction="left", steps=10):
-            return self.jsonrpc.swipe(self.selector, direction, steps)
+        def _swipe(direction="left", steps=10, percent=1):
+            if percent == 1:
+                return self.jsonrpc.swipe(self.selector, direction, steps)
+            else:
+                return self.jsonrpc.swipe(self.selector, direction, percent, steps)
         return _swipe
 
     @property
@@ -950,11 +969,13 @@ class AutomatorDeviceUiObject(object):
         '''
         @param_to_property(action=["exists", "gone"])
         def _wait(action, timeout=3000):
-            if timeout/1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
-                http_timeout = timeout/1000 + 5
+            if timeout / 1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
+                http_timeout = timeout / 1000 + 5
             else:
                 http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
-            method = self.device.server.jsonrpc_wrap(timeout=http_timeout).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
+            method = self.device.server.jsonrpc_wrap(
+                timeout=http_timeout
+            ).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
             return method(self.selector, timeout)
         return _wait
 

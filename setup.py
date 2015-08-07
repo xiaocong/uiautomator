@@ -31,7 +31,7 @@ setup(
     tests_require=test_requires,
     test_suite="nose.collector",
     packages=['uiautomator'],
-    package_data={'uiautomator': ['uiautomator/libs/bundle.jar', 'uiautomator/libs/uiautomator-stub.jar']},
+    package_data={'uiautomator': ['uiautomator/libs/bundle.jar', 'uiautomator/libs/uiautomator-stub.jar', 'uiautomator/libs/app-uiautomator-test.apk', 'uiautomator/libs/app-uiautomator.apk']},
     include_package_data=True,
     license='MIT',
     platforms='any',

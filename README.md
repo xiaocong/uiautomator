@@ -24,6 +24,7 @@ d(text="Clock").click()
 
 - Install [Android SDK](http://developer.android.com/sdk/index.html), and set `ANDROID_HOME` environment to the correct path.
 - Enable ADB setting on device and connect your android device using usb with your PC.
+- Allow apps to install from unknown sources on device settings.
 
 ### import uiautomator
 
@@ -678,21 +679,23 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 
 - Xiaocong He ([@xiaocong][])
 - Yuanyuan Zou ([@yuanyuan][])
+- Qian Jin ([@QianJin2013][])
+- Xu Jingjie ([@xiscoxu][])
 
 [@xiaocong]: https://github.com/xiaocong
 [@yuanyuan]: https://github.com/yuanyuanzou
+[@QianJin2013]: https://github.com/QianJin2013
+[@xiscoxu]: https://github.com/xiscoxu
 
 ## Issues & Discussion
 
 If you have any bug reports or annoyances please report them to our issue tracker at [github issues][].
 
-If you have any suggestions, new feature requirements or topics you want to discuss, please submit your topic at [ostio](http://ost.io/@xiaocong/uiautomator).
-
 ## Notes
 
 - Android [uiautomator][] works on Android 4.1+, so before using it, make sure your device is Android4.1+.
 - Some methods are only working on Android 4.2/4.3, so you'd better read detailed [java documentation of uiautomator](http://developer.android.com/tools/help/uiautomator/index.html) before using it.
-- The module uses [uiautomator-jsonrpc-server](https://github.com/xiaocong/android-uiautomator-jsonrpcserver) as its daemon to communicate with devices.
+- The module uses [uiautomator-jsonrpc-server](https://github.com/xiaocong/android-uiautomator-server) as its daemon to communicate with devices.
 - The module is only tested on python2.7/3.2/3.3/pypy.
 
 ## FAQ
@@ -701,19 +704,9 @@ If you have any suggestions, new feature requirements or topics you want to disc
 
     It may be caused by network, device, or environment. So when you meet the issue, please follow below steps and try to manually start the JSONRPC server.
 
-    1. Download jar files from [uiautomator jsonrpc server](https://github.com/xiaocong/android-uiautomator-jsonrpcserver/releases).
+    1. Follow steps at [uiautomator-jsonrpc-server](https://github.com/xiaocong/android-uiautomator-server#build) to start jsonrpc server.
 
-    2. Adb push the downloaded jar files to `/data/local/tmp/`
-
-    3. Start jsonrpc server via command:
-
-            adb shell uiautomator runtest bundle.jar uiautomator-stub.jar -c com.github.uiautomatorstub.Stub
-
-    4. Adb forward local port to device port:
-
-            adb forward tcp:9008 tcp:9008
-
-    5. Check if jsonrpc server is ok:
+    2. Check if jsonrpc server is ok:
 
             curl -d '{"jsonrpc":"2.0","method":"deviceInfo","id":1}' localhost:9008/jsonrpc/0
 
