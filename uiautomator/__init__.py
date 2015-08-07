@@ -831,11 +831,6 @@ class AutomatorDeviceUiObject(object):
         '''ui object info.'''
         return self.jsonrpc.objInfo(self.selector)
 
-    @property
-    def getResourceName(self):
-        '''ui object resourceName.'''
-        return self.jsonrpc.getResourceName(self.selector)
-
     def set_text(self, text):
         '''set the text field.'''
         if text in [None, ""]:
@@ -947,17 +942,21 @@ class AutomatorDeviceUiObject(object):
     @property
     def swipe(self):
         '''
-        Perform swipe action.
+        Perform swipe action. if device platform greater than API 18, percent can be used and value between 0 and 1
         Usages:
         d().swipe.right()
         d().swipe.left(steps=10)
         d().swipe.up(steps=10)
         d().swipe.down()
         d().swipe("right", steps=20)
+        d().swipe("right", steps=20, percent=0.5)
         '''
         @param_to_property(direction=["up", "down", "right", "left"])
-        def _swipe(direction="left", steps=10):
-            return self.jsonrpc.swipe(self.selector, direction, steps)
+        def _swipe(direction="left", steps=10, percent=1):
+            if percent == 1:
+                return self.jsonrpc.swipe(self.selector, direction, steps)
+            else:
+                return self.jsonrpc.swipe(self.selector, direction, percent, steps)
         return _swipe
 
     @property
