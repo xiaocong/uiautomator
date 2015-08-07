@@ -24,6 +24,7 @@ d(text="Clock").click()
 
 - Install [Android SDK](http://developer.android.com/sdk/index.html), and set `ANDROID_HOME` environment to the correct path.
 - Enable ADB setting on device and connect your android device using usb with your PC.
+- Allow apps to install from unknown sources on device settings.
 
 ### import uiautomator
 
