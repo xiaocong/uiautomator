@@ -952,11 +952,11 @@ class AutomatorDeviceUiObject(object):
         d().swipe("right", steps=20, percent=0.5)
         '''
         @param_to_property(direction=["up", "down", "right", "left"])
-        def _swipe(direction="left",steps=10,percent=1):
-            if percent==1:
+        def _swipe(direction="left", steps=10, percent=1):
+            if percent == 1:
                 return self.jsonrpc.swipe(self.selector, direction, steps)
             else:
-                return self.jsonrpc.swipe(self.selector,direction,percent,steps)
+                return self.jsonrpc.swipe(self.selector, direction, percent, steps)
         return _swipe
 
     @property
