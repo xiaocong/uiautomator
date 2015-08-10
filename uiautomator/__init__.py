@@ -371,6 +371,8 @@ class AutomatorServer(object):
 
     __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test.apk"]
 
+    __sdk = 0
+
     handlers = NotFoundHandler()  # handler UI Not Found exception
 
     def __init__(self, serial=None, local_port=None, device_port=None, adb_server_host=None, adb_server_port=None):
@@ -449,11 +451,12 @@ class AutomatorServer(object):
 
     def sdk_version(self):
         '''sdk version of connected device.'''
-        sdk = self.adb.cmd("shell", "getprop", "ro.build.version.sdk").communicate()[0].decode("utf-8").strip()
-        try:
-            return int(sdk)
-        except:
-            return 0
+        if self.__sdk == 0:
+            try:
+                self.__sdk = int(self.adb.cmd("shell", "getprop", "ro.build.version.sdk").communicate()[0].decode("utf-8").strip())
+            except:
+                pass
+        return self.__sdk
 
     def start(self, timeout=5):
         if self.sdk_version() < 18:
@@ -518,6 +521,25 @@ class AutomatorServer(object):
     @property
     def rpc_uri(self):
         return "http://%s:%d/jsonrpc/0" % (self.adb.adb_server_host, self.local_port)
+
+    @property
+    def screenshot_uri(self):
+        return "http://%s:%d/screenshot/0" % (self.adb.adb_server_host, self.local_port)
+
+    def screenshot(self, filename=None, scale=1.0, quality=100):
+        if self.sdk_version() >= 18:
+            try:
+                req = urllib2.Request("%s?scale=%f&quality=%f" % (self.screenshot_uri, scale, quality))
+                result = urllib2.urlopen(req, timeout=30)
+                if filename:
+                    with open(filename, 'wb') as f:
+                        f.write(result.read())
+                        return filename
+                else:
+                    return result.read()
+            except:
+                pass
+        return None
 
 
 class AutomatorDevice(object):
@@ -586,6 +608,10 @@ class AutomatorDevice(object):
 
     def screenshot(self, filename, scale=1.0, quality=100):
         '''take screenshot.'''
+        result = self.server.screenshot(filename, scale, quality)
+        if result:
+            return result
+
         device_file = self.server.jsonrpc.takeScreenshot("screenshot.png",
                                                          scale, quality)
         if not device_file:
