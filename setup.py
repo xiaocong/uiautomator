@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-import uiautomator
-import multiprocessing
-
 try:
     from setuptools import setup
 except ImportError:
@@ -19,19 +15,32 @@ test_requires = [
     'coverage>=3.6'
 ]
 
+version = '0.2.1'
+
 setup(
     name='uiautomator',
-    version=uiautomator.__version__,
+    version=version,
     description='Python Wrapper for Android UiAutomator test tool',
-    long_description=uiautomator.__doc__,
-    author=uiautomator.__author__,
+    long_description='Python wrapper for Android uiautomator tool.',
+    author='Xiaocong He',
     author_email='xiaocong@gmail.com',
     url='https://github.com/xiaocong/uiautomator',
+    download_url='https://github.com/xiaocong/uiautomator/tarball/%s' % version,
+    keywords=[
+        'testing', 'android', 'uiautomator'
+    ],
     install_requires=requires,
     tests_require=test_requires,
     test_suite="nose.collector",
     packages=['uiautomator'],
-    package_data={'uiautomator': ['uiautomator/libs/bundle.jar', 'uiautomator/libs/uiautomator-stub.jar', 'uiautomator/libs/app-uiautomator-test.apk', 'uiautomator/libs/app-uiautomator.apk']},
+    package_data={
+        'uiautomator': [
+            'uiautomator/libs/bundle.jar',
+            'uiautomator/libs/uiautomator-stub.jar',
+            'uiautomator/libs/app-uiautomator-test.apk',
+            'uiautomator/libs/app-uiautomator.apk'
+        ]
+    },
     include_package_data=True,
     license='MIT',
     platforms='any',
