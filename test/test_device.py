@@ -55,6 +55,8 @@ class TestDevice(unittest.TestCase):
         self.device.server.jsonrpc.takeScreenshot = MagicMock()
         self.device.server.jsonrpc.takeScreenshot.return_value = "1.png"
         self.device.server.adb.cmd = cmd = MagicMock()
+        self.device.server.screenshot = MagicMock()
+        self.device.server.screenshot.return_value = None
         cmd.return_value.returncode = 0
         self.assertEqual(self.device.screenshot("a.png", 1.0, 99), "a.png")
         self.device.server.jsonrpc.takeScreenshot.assert_called_once_with("screenshot.png", 1.0, 99)

@@ -131,6 +131,18 @@ class TestAutomatorServer_Stop(unittest.TestCase):
     def tearDown(self):
         self.urlopen_patch.stop()
 
+    def test_screenshot(self):
+        server = AutomatorServer()
+        server.sdk_version = MagicMock()
+        server.sdk_version.return_value = 17
+        self.assertEqual(server.screenshot(), None)
+
+        server.sdk_version.return_value = 18
+        self.urlopen.return_value.read = MagicMock()
+        self.urlopen.return_value.read.return_value = b"123456"
+        self.assertEqual(server.screenshot(), b"123456")
+        self.assertEqual(server.screenshot("/tmp/test.txt"), "/tmp/test.txt")
+
     def test_push(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
         server = AutomatorServer()

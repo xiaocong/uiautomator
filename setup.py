@@ -15,7 +15,7 @@ test_requires = [
     'coverage>=3.6'
 ]
 
-version = '0.2.1'
+version = '0.2.3'
 
 setup(
     name='uiautomator',
@@ -52,6 +52,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Testing'
     )
