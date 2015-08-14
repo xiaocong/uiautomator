@@ -3,10 +3,11 @@ uiautomator
 
 [![Join the chat at https://gitter.im/xiaocong/uiautomator](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/xiaocong/uiautomator?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![build](https://api.travis-ci.org/xiaocong/uiautomator.png?branch=master)](https://travis-ci.org/xiaocong/uiautomator)
-[![Coverage Status](https://coveralls.io/repos/xiaocong/uiautomator/badge.png?branch=master)](https://coveralls.io/r/xiaocong/uiautomator?branch=master)
-[![pypi](https://badge.fury.io/py/uiautomator.png)](http://badge.fury.io/py/uiautomator)
-[![downloads](https://pypip.in/d/uiautomator/badge.png)](https://crate.io/packages/uiautomator/)
+[![MIT License](https://img.shields.io/github/license/xiaocong/uiautomator.svg)](http://opensource.org/licenses/MIT)
+[![build](https://img.shields.io/travis/xiaocong/uiautomator/master.svg)](https://travis-ci.org/xiaocong/uiautomator)
+[![Coverage Status](https://img.shields.io/coveralls/xiaocong/uiautomator/master.svg)](https://coveralls.io/r/xiaocong/uiautomator?branch=master)
+[![pypi](https://img.shields.io/pypi/v/uiautomator.svg)](https://pypi.python.org/pypi/uiautomator)
+[![downloads](https://img.shields.io/pypi/dm/uiautomator.svg)](https://pypi.python.org/pypi/uiautomator)
 
 This module is a Python wrapper of Android [uiautomator][] testing framework. It works on Android 4.1+ simply with Android device attached via adb, no need to install anything on Android device.
 
