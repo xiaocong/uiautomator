@@ -13,6 +13,7 @@ import hashlib
 import socket
 import re
 import collections
+import xml.dom.minidom
 
 DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
@@ -597,9 +598,12 @@ class AutomatorDevice(object):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
 
-    def dump(self, filename=None, compressed=True):
+    def dump(self, filename=None, compressed=True, pretty=True):
         '''dump device window and pull to local file.'''
         content = self.server.jsonrpc.dumpWindowHierarchy(compressed, None)
+        if pretty:
+            xml_text = xml.dom.minidom.parseString(str(content))
+            content = xml_text.toprettyxml(indent='  ')
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
