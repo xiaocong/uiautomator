@@ -601,12 +601,12 @@ class AutomatorDevice(object):
     def dump(self, filename=None, compressed=True, pretty=True):
         '''dump device window and pull to local file.'''
         content = self.server.jsonrpc.dumpWindowHierarchy(compressed, None)
-        if pretty:
-            xml_text = xml.dom.minidom.parseString(str(content))
-            content = xml_text.toprettyxml(indent='  ')
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
+        if pretty:
+            xml_text = xml.dom.minidom.parseString(str(content))
+            content = xml_text.toprettyxml(indent='  ')
         return content
 
     def screenshot(self, filename, scale=1.0, quality=100):
