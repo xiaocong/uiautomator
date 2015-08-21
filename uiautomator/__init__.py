@@ -605,7 +605,7 @@ class AutomatorDevice(object):
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
         if pretty:
-            xml_text = xml.dom.minidom.parseString(str(content))
+            xml_text = xml.dom.minidom.parseString(content.encode("utf-8"))
             content = xml_text.toprettyxml(indent='  ')
         return content
 

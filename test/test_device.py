@@ -159,7 +159,12 @@ class TestDevice(unittest.TestCase):
         condition2 = {"description": "my desc", "clickable": True}
         target = {"className": "android.widget.Button", "text": "OK"}
         self.device.watcher("watcher").when(**condition1).when(**condition2).click(**target)
-        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with("watcher", [Selector(**condition1), Selector(**condition2)], Selector(**target))
+        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with(
+            "watcher",
+            [Selector(**condition1),
+            Selector(**condition2)],
+            Selector(**target)
+        )
 
         self.device.server.jsonrpc.registerPressKeyskWatcher = MagicMock()
         self.device.watcher("watcher2").when(**condition1).when(**condition2).press.back.home.power("menu")
