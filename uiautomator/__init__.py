@@ -791,11 +791,33 @@ class AutomatorDevice(object):
         Usage:
         d.screen.on()
         d.screen.off()
+
+        d.screen == 'on'  # Check if the screen is on, same as 'd.screenOn'
+        d.screen == 'off'  # Check if the screen is off, same as 'not d.screenOn'
         '''
-        @param_to_property(action=["on", "off"])
-        def _screen(action):
-            return self.wakeup() if action == "on" else self.sleep()
-        return _screen
+        devive_self = self
+
+        class _Screen(object):
+            def on(self):
+                return devive_self.wakeup()
+
+            def off(self):
+                return devive_self.sleep()
+
+            def __eq__(self, value):
+                info = devive_self.info
+                if "screenOn" not in info:
+                    raise EnvironmentError("Not supported on Android 4.3 and belows.")
+                if value in ["on", "On", "ON"]:
+                    return info["screenOn"]
+                elif value in ["off", "Off", "OFF"]:
+                    return not info["screenOn"]
+                raise ValueError("Invalid parameter. It can only be compared with on/off.")
+
+            def __ne__(self, value):
+                return not self.__eq__(value)
+
+        return _Screen()
 
     @property
     def wait(self):
