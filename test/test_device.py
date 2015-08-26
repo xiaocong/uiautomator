@@ -159,7 +159,11 @@ class TestDevice(unittest.TestCase):
         condition2 = {"description": "my desc", "clickable": True}
         target = {"className": "android.widget.Button", "text": "OK"}
         self.device.watcher("watcher").when(**condition1).when(**condition2).click(**target)
-        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with("watcher", [Selector(**condition1), Selector(**condition2)], Selector(**target))
+        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with(
+            "watcher",
+            [Selector(**condition1), Selector(**condition2)],
+            Selector(**target)
+        )
 
         self.device.server.jsonrpc.registerPressKeyskWatcher = MagicMock()
         self.device.watcher("watcher2").when(**condition1).when(**condition2).press.back.home.power("menu")
@@ -197,6 +201,16 @@ class TestDevice(unittest.TestCase):
         self.device.server.jsonrpc.wakeUp = MagicMock()
         self.device.screen("on")
         self.device.server.jsonrpc.wakeUp.assert_called_once_with()
+
+    def test_screen_status(self):
+        self.device.server.jsonrpc.deviceInfo = MagicMock()
+        self.device.server.jsonrpc.deviceInfo.return_value = {"screenOn": True}
+        self.assertTrue(self.device.screen == "on")
+        self.assertTrue(self.device.screen != "off")
+
+        self.device.server.jsonrpc.deviceInfo.return_value = {"screenOn": False}
+        self.assertTrue(self.device.screen == "off")
+        self.assertTrue(self.device.screen != "on")
 
     def test_sleep(self):
         self.device.server.jsonrpc.sleep = MagicMock()

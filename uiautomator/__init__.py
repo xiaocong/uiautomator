@@ -804,6 +804,14 @@ class AutomatorDevice(object):
             def off(self):
                 return devive_self.sleep()
 
+            def __call__(self, action):
+                if action == "on":
+                    return self.on()
+                elif action == "off":
+                    return self.off()
+                else:
+                    raise AttributeError("Invalid parameter: %s" % action)
+
             def __eq__(self, value):
                 info = devive_self.info
                 if "screenOn" not in info:
