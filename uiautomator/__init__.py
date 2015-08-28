@@ -604,9 +604,9 @@ class AutomatorDevice(object):
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
-        if pretty:
+        if pretty and "\n " not in content:
             xml_text = xml.dom.minidom.parseString(content.encode("utf-8"))
-            content = xml_text.toprettyxml(indent='  ')
+            content = U(xml_text.toprettyxml(indent='  '))
         return content
 
     def screenshot(self, filename, scale=1.0, quality=100):

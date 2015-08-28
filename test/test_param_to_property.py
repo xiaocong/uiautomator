@@ -10,6 +10,7 @@ class TestParamToProperty(unittest.TestCase):
     def test_props(self):
         args_value = None
         kwargs_value = None
+
         @param_to_property("one", "two", "three")
         def func(*args, **kwargs):
             self.assertEqual(args, args_value)
@@ -31,6 +32,7 @@ class TestParamToProperty(unittest.TestCase):
     def test_kwprops(self):
         args_value = None
         kwargs_value = None
+
         @param_to_property(key=["one", "two", "three"])
         def func(*args, **kwargs):
             self.assertEqual(args, args_value)
