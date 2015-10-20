@@ -13,6 +13,7 @@ import hashlib
 import socket
 import re
 import collections
+import xml.dom.minidom
 
 DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
@@ -593,16 +594,26 @@ class AutomatorDevice(object):
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
 
+    def swipePoints(self, points, steps=100):
+        ppoints = []
+        for p in points:
+            ppoints.append(p[0])
+            ppoints.append(p[1])
+        return self.server.jsonrpc.swipePoints(ppoints, steps)
+
     def drag(self, sx, sy, ex, ey, steps=100):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
 
-    def dump(self, filename=None, compressed=True):
+    def dump(self, filename=None, compressed=True, pretty=True):
         '''dump device window and pull to local file.'''
         content = self.server.jsonrpc.dumpWindowHierarchy(compressed, None)
         if filename:
             with open(filename, "wb") as f:
                 f.write(content.encode("utf-8"))
+        if pretty and "\n " not in content:
+            xml_text = xml.dom.minidom.parseString(content.encode("utf-8"))
+            content = U(xml_text.toprettyxml(indent='  '))
         return content
 
     def screenshot(self, filename, scale=1.0, quality=100):
@@ -791,11 +802,41 @@ class AutomatorDevice(object):
         Usage:
         d.screen.on()
         d.screen.off()
+
+        d.screen == 'on'  # Check if the screen is on, same as 'd.screenOn'
+        d.screen == 'off'  # Check if the screen is off, same as 'not d.screenOn'
         '''
-        @param_to_property(action=["on", "off"])
-        def _screen(action):
-            return self.wakeup() if action == "on" else self.sleep()
-        return _screen
+        devive_self = self
+
+        class _Screen(object):
+            def on(self):
+                return devive_self.wakeup()
+
+            def off(self):
+                return devive_self.sleep()
+
+            def __call__(self, action):
+                if action == "on":
+                    return self.on()
+                elif action == "off":
+                    return self.off()
+                else:
+                    raise AttributeError("Invalid parameter: %s" % action)
+
+            def __eq__(self, value):
+                info = devive_self.info
+                if "screenOn" not in info:
+                    raise EnvironmentError("Not supported on Android 4.3 and belows.")
+                if value in ["on", "On", "ON"]:
+                    return info["screenOn"]
+                elif value in ["off", "Off", "OFF"]:
+                    return not info["screenOn"]
+                raise ValueError("Invalid parameter. It can only be compared with on/off.")
+
+            def __ne__(self, value):
+                return not self.__eq__(value)
+
+        return _Screen()
 
     @property
     def wait(self):

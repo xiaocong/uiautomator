@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import re
+import os.path
+import codecs
 from mock import MagicMock, call, patch
 from uiautomator import AutomatorDevice, Selector
 
@@ -47,9 +50,16 @@ class TestDevice(unittest.TestCase):
 
     def test_dump(self):
         self.device.server.jsonrpc.dumpWindowHierarchy = MagicMock()
-        self.device.server.jsonrpc.dumpWindowHierarchy.return_value = "<?xml>"
-        self.assertEqual(self.device.dump("/tmp/test.xml"), "<?xml>")
-        self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, None)
+        with codecs.open(os.path.join(os.path.dirname(__file__), "res", "layout.xml"), "r", encoding="utf8") as f:
+            xml = f.read()
+            self.device.server.jsonrpc.dumpWindowHierarchy.return_value = xml
+            self.assertEqual(self.device.dump("/tmp/test.xml"), xml)
+            self.device.server.jsonrpc.dumpWindowHierarchy.assert_called_once_with(True, None)
+            self.assertEqual(self.device.dump("/tmp/test.xml", False), xml)
+
+            raw_xml = "".join(re.split(r"\n[ ]*", xml))
+            self.device.server.jsonrpc.dumpWindowHierarchy.return_value = raw_xml
+            self.assertTrue("\n  " in self.device.dump("/tmp/test.xml"))
 
     def test_screenshot(self):
         self.device.server.jsonrpc.takeScreenshot = MagicMock()
@@ -159,7 +169,11 @@ class TestDevice(unittest.TestCase):
         condition2 = {"description": "my desc", "clickable": True}
         target = {"className": "android.widget.Button", "text": "OK"}
         self.device.watcher("watcher").when(**condition1).when(**condition2).click(**target)
-        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with("watcher", [Selector(**condition1), Selector(**condition2)], Selector(**target))
+        self.device.server.jsonrpc.registerClickUiObjectWatcher.assert_called_once_with(
+            "watcher",
+            [Selector(**condition1), Selector(**condition2)],
+            Selector(**target)
+        )
 
         self.device.server.jsonrpc.registerPressKeyskWatcher = MagicMock()
         self.device.watcher("watcher2").when(**condition1).when(**condition2).press.back.home.power("menu")
@@ -197,6 +211,16 @@ class TestDevice(unittest.TestCase):
         self.device.server.jsonrpc.wakeUp = MagicMock()
         self.device.screen("on")
         self.device.server.jsonrpc.wakeUp.assert_called_once_with()
+
+    def test_screen_status(self):
+        self.device.server.jsonrpc.deviceInfo = MagicMock()
+        self.device.server.jsonrpc.deviceInfo.return_value = {"screenOn": True}
+        self.assertTrue(self.device.screen == "on")
+        self.assertTrue(self.device.screen != "off")
+
+        self.device.server.jsonrpc.deviceInfo.return_value = {"screenOn": False}
+        self.assertTrue(self.device.screen == "off")
+        self.assertTrue(self.device.screen != "on")
 
     def test_sleep(self):
         self.device.server.jsonrpc.sleep = MagicMock()
