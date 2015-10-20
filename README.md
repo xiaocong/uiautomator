@@ -119,6 +119,17 @@ This part show the normal actions of the device through some simple examples.
   d.sleep()
   ```
 
+* Check if the screen is on or off
+
+    ```python
+    if d.screen == "on":  # of d.screen != "off"
+        # do something in case of screen on
+        pass
+    if d.screen == "off":  # of d.screen != "on"
+        # do something in case of screen off
+        pass
+    ```
+
 * Press hard/soft key
 
   ```python
