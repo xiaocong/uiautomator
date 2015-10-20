@@ -594,6 +594,13 @@ class AutomatorDevice(object):
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
 
+    def swipePoints(self, points, steps=100):
+        ppoints = []
+        for p in points:
+            ppoints.append(p[0])
+            ppoints.append(p[1])
+        return self.server.jsonrpc.swipePoints(ppoints, steps)
+
     def drag(self, sx, sy, ex, ey, steps=100):
         '''Swipe from one point to another point.'''
         return self.server.jsonrpc.drag(sx, sy, ex, ey, steps)
