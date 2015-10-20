@@ -684,11 +684,13 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 - Yuanyuan Zou ([@yuanyuan][])
 - Qian Jin ([@QianJin2013][])
 - Xu Jingjie ([@xiscoxu][])
+- Xia Mingyuan ([@mingyuan-xia][])
 
 [@xiaocong]: https://github.com/xiaocong
 [@yuanyuan]: https://github.com/yuanyuanzou
 [@QianJin2013]: https://github.com/QianJin2013
 [@xiscoxu]: https://github.com/xiscoxu
+[@mingyuan-xia]: https://github.com/mingyuan-xia
 
 ## Issues & Discussion
 
