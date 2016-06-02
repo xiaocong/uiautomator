@@ -379,6 +379,7 @@ class AutomatorServer(object):
         self.uiautomator_process = None
         self.adb = Adb(serial=serial, adb_server_host=adb_server_host, adb_server_port=adb_server_port)
         self.device_port = int(device_port) if device_port else DEVICE_PORT
+        self.is_jar_server = False
         if local_port:
             self.local_port = local_port
         else:
@@ -466,10 +467,12 @@ class AutomatorServer(object):
                 files,
                 ["-c", "com.github.uiautomatorstub.Stub"]
             ))
+            self.is_jar_server = True
         else:
             self.install()
             cmd = ["shell", "am", "instrument", "-w",
                    "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
+            self.is_jar_server = False
 
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
@@ -505,12 +508,15 @@ class AutomatorServer(object):
                     res.close()
                 self.uiautomator_process = None
         try:
-            out = self.adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
-            if out:
-                index = out[0].split().index("PID")
-                for line in out[1:]:
-                    if len(line.split()) > index:
-                        self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
+            if self.is_jar_server:
+                out = self.adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
+                if out:
+                    index = out[0].split().index("PID")
+                    for line in out[1:]:
+                        if len(line.split()) > index:
+                            self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
+            else:
+                self.adb.cmd("shell", "am", "force-stop", "com.github.uiautomator")
         except:
             pass
 
