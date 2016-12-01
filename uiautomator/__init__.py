@@ -402,7 +402,7 @@ class AutomatorServer(object):
     def install(self):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
-            self.adb.cmd("install", "-rt", os.path.join(base_dir, apk)).wait()
+            self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
 
     @property
     def jsonrpc(self):
