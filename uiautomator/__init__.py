@@ -989,6 +989,20 @@ class AutomatorDeviceUiObject(object):
         obj = type("Gesture", (object,), {"to": to})()
         return obj if len(args) == 0 else to(None, *args, **kwargs)
 
+    def gestureM(self, start1, start2, start3, *args, **kwargs):
+        '''
+        perform 3 point gesture.
+        Usage:
+        d().gestureM((100,200),(100,300),(100,400),(100,400),(100,400),(100,400))
+        d().gestureM((100,200),(100,300),(100,400)).to((100,400),(100,400),(100,400))
+        '''
+        def to(obj_self, end1, end2, end3, steps=100):
+            ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
+            s1, s2, s3, e1, e2, e3 = ctp(start1), ctp(start2), ctp(start3), ctp(end1), ctp(end2), ctp(end3)
+            return self.jsonrpc.gesture(self.selector, s1, s2, s3, e1, e2, e3, steps)
+        obj = type("Gesture", (object,), {"to": to})()
+        return obj if len(args) == 0 else to(None, *args, **kwargs)
+
     @property
     def pinch(self):
         '''

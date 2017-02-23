@@ -15,7 +15,7 @@ test_requires = [
     'coverage>=3.6'
 ]
 
-version = '0.2.6'
+version = '0.3.0'
 
 setup(
     name='uiautomator',
@@ -23,7 +23,7 @@ setup(
     description='Python Wrapper for Android UiAutomator test tool',
     long_description='Python wrapper for Android uiautomator tool.',
     author='Xiaocong He',
-    author_email='xiaocong@gmail.com',
+    author_email='xiaocong@gmail.com,hongbin.bao@gmail.com',
     url='https://github.com/xiaocong/uiautomator',
     download_url='https://github.com/xiaocong/uiautomator/tarball/%s' % version,
     keywords=[
