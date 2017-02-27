@@ -629,6 +629,14 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
   d(text="Settings").pinch.Out()
   ```
 
+* 3 point gesture
+
+  ```python
+  d().gestureM((sx1, sy1), (sx2, sy2),(sx3, sy3)) \
+                    .to((ex1, ey1), (ex2, ey2),(ex3,ey3))
+  d().gestureM((100,200),(300,200),(600,200),(100,600),(300,600),(600,900))
+  ```
+
 * Wait until the specific ui object appears or gone
 
   ```python
