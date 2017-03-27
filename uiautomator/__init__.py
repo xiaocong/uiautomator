@@ -318,7 +318,7 @@ class Adb(object):
         if not rebind:
             cmd += "--no-rebind"
         cmd += ["tcp:%d" % local_port, "tcp:%d" % device_port]
-        return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+        return self.cmd(*cmd).wait()
 
     def forward_list(self):
         '''adb forward --list'''
