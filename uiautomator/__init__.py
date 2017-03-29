@@ -316,7 +316,7 @@ class Adb(object):
         '''adb port forward. return 0 if success, else non-zero.'''
         cmd = ["forward"]
         if not rebind:
-            cmd += "--no-rebind"
+            cmd.append("--no-rebind")
         cmd += ["tcp:%d" % local_port, "tcp:%d" % device_port]
         return self.cmd(*cmd).wait()
 
