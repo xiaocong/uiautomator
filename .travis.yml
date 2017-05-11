@@ -3,6 +3,8 @@ python:
   - "2.7"
   - "3.3"
   - "3.4"
+  - "3.5"
+  - "3.6"
   - "pypy"
 
 # Install test dependencies. TravisCI gives us nose, mock, and pytest by default

@@ -42,15 +42,37 @@ class TestAutomatorServer(unittest.TestCase):
     def test_device_port(self):
         self.assertEqual(AutomatorServer().device_port, 9008)
 
-    def test_start_success(self):
+    def test_start_success_over_api_18(self):
         server = AutomatorServer()
         server.push = MagicMock()
         server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+
         server.ping = MagicMock()
         server.ping.return_value = "pong"
+
+        server.sdk_version = MagicMock()
+        server.sdk_version.return_value = 20
+
         server.adb = MagicMock()
         server.start()
-        server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
+        server.adb.cmd.assert_called_with("shell", "am", "instrument", "-w",
+                                          "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner")
+
+    def test_start_success_under_api_18(self):
+        server = AutomatorServer()
+        server.push = MagicMock()
+        server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+
+        server.ping = MagicMock()
+        server.ping.return_value = "pong"
+
+        server.sdk_version = MagicMock()
+        server.sdk_version.return_value = 17
+
+        server.adb = MagicMock()
+        server.start()
+        server.adb.cmd.assert_called_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c',
+                                          'com.github.uiautomatorstub.Stub')
 
     def test_start_error(self):
         server = AutomatorServer()
