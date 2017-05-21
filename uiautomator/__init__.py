@@ -474,10 +474,13 @@ class AutomatorServer(object):
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
 
-        while not self.alive and timeout > 0:
-            time.sleep(0.1)
-            timeout -= 0.1
-        if not self.alive:
+        step_secs = 0.1
+        expiration_time = time.time() + timeout
+        while time.time() < expiration_time:
+            if self.alive:
+                break
+            time.sleep(step_secs)
+        else:
             raise IOError("RPC server not started!")
 
     def ping(self):
