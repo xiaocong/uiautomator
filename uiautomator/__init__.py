@@ -469,6 +469,7 @@ class AutomatorServer(object):
         else:
             self.install()
             cmd = ["shell", "am", "instrument", "-w",
+                   "-e", "class", "com.github.uiautomator.stub.Stub",
                    "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
 
         self.uiautomator_process = self.adb.cmd(*cmd)
