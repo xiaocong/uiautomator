@@ -89,6 +89,20 @@ class TestAdb(unittest.TestCase):
         adb.cmd.assert_called_once_with("forward", "tcp:90", "tcp:91")
         adb.cmd.return_value.wait.assert_called_once_with()
 
+    def test_forward_rebind_false(self):
+        adb = Adb()
+        adb.cmd = MagicMock()
+        adb.forward(90, 91, rebind=False)
+        adb.cmd.assert_called_once_with("forward", "--no-rebind", "tcp:90", "tcp:91")
+        adb.cmd.return_value.wait.assert_called_once_with()
+
+    def test_forward_rebind_true(self):
+        adb = Adb()
+        adb.cmd = MagicMock()
+        adb.forward(90, 91, rebind=True)
+        adb.cmd.assert_called_once_with("forward", "tcp:90", "tcp:91")
+        adb.cmd.return_value.wait.assert_called_once_with()
+
     def test_adb_raw_cmd(self):
         import subprocess
         adb = Adb()

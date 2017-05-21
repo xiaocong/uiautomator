@@ -403,13 +403,29 @@ class AutomatorServer(object):
             self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
 
     def get_forwarded_port(self):
-        for s, lp, rp in self.adb.forward_list():
-            if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
-                return int(lp[4:])
+        '''Returns local port used for forwarding with current device and port.
+
+        Returns:
+            int, local port set up for forwarding with current device and port
+            None, if no forwarding was set up with current device and port.
+        '''
+        for serial, local_port, remote_port in self.adb.forward_list():
+            if (serial == self.adb.device_serial() and 
+                remote_port == 'tcp:%d' % self.device_port):
+                return int(local_port[4:])
         return None
 
     @property
     def local_port(self):
+        '''Finds a free local port and acquires it for use with adb forwarding.
+
+        Will try to find a free local port and set up adb port forwarding with
+        it. If forwarding fails, will try next free local port.
+
+        Returns:
+            int, local port used for adb forwarding.
+        '''
+
         # If the port was already assigned, just return it.
         if self.__local_port:
             return self.__local_port
