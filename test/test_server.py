@@ -50,7 +50,7 @@ class TestAutomatorServer(unittest.TestCase):
         server.ping.return_value = "pong"
         server.adb = MagicMock()
         server.start()
-        server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
+        server.adb.cmd.assert_called_once_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
 
     def test_start_error(self):
         server = AutomatorServer()
