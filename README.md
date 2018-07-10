@@ -735,15 +735,18 @@ If you have any bug reports or annoyances please report them to our issue tracke
             curl -d '{"jsonrpc":"2.0","method":"deviceInfo","id":1}' localhost:9008/jsonrpc/0
 
         If you see message like `{"jsonrpc":"2.0","id":1,"result":{"currentPackageName":"android","displayHeight":1280,"displayRotation":0,"displaySizeDpX":0,"displaySizeDpY":0,"displayWidth":720,"productName":"falcon","sdkInt":17,"naturalOrientation":true}}`, it means the server is up.
-
+        
+    3. check local python lib: python2.7/dist-packages/uiautomator/libs:
+    
+           device sdk_level < 18 should use jar. device sdk_level >= 18 use APK.
+           
+      
     If you can manually start the jsonrpc server, but your script always meets `IOError("RPC server not started!")`, please submit an issue at [github issues][].
 
 - Error `httplib.BadStatusLine: ''`
 
     JsonRPC server needs to access temp directory on device, but on some low tier devices, it may meet error during accessing temp files without SD-CARD attached. So if you met the error, please insert a SD-CARD and then try again.
     
-    3. check local python lib: python2.7/dist-packages/uiautomator/libs 
-       device sdk_level < 18 should use jar. device sdk_level >= 18 use APK.
 
 ## License
 
