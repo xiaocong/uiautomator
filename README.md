@@ -741,6 +741,9 @@ If you have any bug reports or annoyances please report them to our issue tracke
 - Error `httplib.BadStatusLine: ''`
 
     JsonRPC server needs to access temp directory on device, but on some low tier devices, it may meet error during accessing temp files without SD-CARD attached. So if you met the error, please insert a SD-CARD and then try again.
+    
+    3. check local python lib: python2.7/dist-packages/uiautomator/libs 
+       device sdk_level < 18 should use jar. device sdk_level >= 18 use APK.
 
 ## License
 
