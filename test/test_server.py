@@ -6,6 +6,10 @@ from mock import MagicMock, patch, call
 from uiautomator import AutomatorServer, JsonRPCError
 
 
+def _create_server_for_test():
+    return AutomatorServer(local_port=1234)
+
+
 class TestAutomatorServer(unittest.TestCase):
 
     def setUp(self):
@@ -29,13 +33,9 @@ class TestAutomatorServer(unittest.TestCase):
 
     def test_local_port_scanning(self):
         with patch('uiautomator.next_local_port') as next_local_port:
-            self.Adb.return_value.forward_list.return_value = []
+            self.Adb.return_value.device_serial.return_value = "abcd"
+            self.Adb.return_value.forward_list.side_effect = [[], [["abcd", "tcp:1234", "tcp:9008"]]]
             next_local_port.return_value = 1234
-            self.assertEqual(AutomatorServer("abcd", None).local_port,
-                             next_local_port.return_value)
-
-            next_local_port.return_value = 14321
-            self.Adb.return_value.forward_list.return_value = Exception("error")
             self.assertEqual(AutomatorServer("abcd", None).local_port,
                              next_local_port.return_value)
 
@@ -43,7 +43,7 @@ class TestAutomatorServer(unittest.TestCase):
         self.assertEqual(AutomatorServer().device_port, 9008)
 
     def test_start_success(self):
-        server = AutomatorServer()
+        server = _create_server_for_test()
         server.push = MagicMock()
         server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
@@ -53,7 +53,7 @@ class TestAutomatorServer(unittest.TestCase):
         server.adb.cmd.assert_valled_onec_with('shell', 'uiautomator', 'runtest', 'bundle.jar', 'uiautomator-stub.jar', '-c', 'com.github.uiautomatorstub.Stub')
 
     def test_start_error(self):
-        server = AutomatorServer()
+        server = _create_server_for_test()
         server.push = MagicMock()
         server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
         server.ping = MagicMock()
@@ -76,7 +76,7 @@ class TestAutomatorServer(unittest.TestCase):
                     raise result
                 return result
             JsonRPCMethod.return_value.side_effect = side_effect
-            server = AutomatorServer()
+            server = _create_server_for_test()
             server.start = MagicMock()
             server.stop = MagicMock()
             self.assertEqual("ok", server.jsonrpc.any_method())
@@ -89,14 +89,14 @@ class TestAutomatorServer(unittest.TestCase):
                     raise result
                 return result
             JsonRPCMethod.return_value.side_effect = side_effect
-            server = AutomatorServer()
+            server = _create_server_for_test()
             server.start = MagicMock()
             server.stop = MagicMock()
             self.assertEqual("ok", server.jsonrpc.any_method())
             server.start.assert_called_once_with()
         with patch("uiautomator.JsonRPCMethod") as JsonRPCMethod:
             JsonRPCMethod.return_value.side_effect = JsonRPCError(-32000-2, "error msg")
-            server = AutomatorServer()
+            server = _create_server_for_test()
             server.start = MagicMock()
             server.stop = MagicMock()
             with self.assertRaises(JsonRPCError):
@@ -105,7 +105,7 @@ class TestAutomatorServer(unittest.TestCase):
     def test_start_ping(self):
         with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
             JsonRPCClient.return_value.ping.return_value = "pong"
-            server = AutomatorServer()
+            server = _create_server_for_test()
             server.adb = MagicMock()
             server.adb.forward.return_value = 0
             self.assertEqual(server.ping(), "pong")
@@ -113,7 +113,7 @@ class TestAutomatorServer(unittest.TestCase):
     def test_start_ping_none(self):
         with patch("uiautomator.JsonRPCClient") as JsonRPCClient:
             JsonRPCClient.return_value.ping.side_effect = Exception("error")
-            server = AutomatorServer()
+            server = _create_server_for_test()
             self.assertEqual(server.ping(), None)
 
 
@@ -132,7 +132,7 @@ class TestAutomatorServer_Stop(unittest.TestCase):
         self.urlopen_patch.stop()
 
     def test_screenshot(self):
-        server = AutomatorServer()
+        server = _create_server_for_test()
         server.sdk_version = MagicMock()
         server.sdk_version.return_value = 17
         self.assertEqual(server.screenshot(), None)
@@ -145,7 +145,7 @@ class TestAutomatorServer_Stop(unittest.TestCase):
 
     def test_push(self):
         jars = ["bundle.jar", "uiautomator-stub.jar"]
-        server = AutomatorServer()
+        server = _create_server_for_test()
         server.adb = MagicMock()
         self.assertEqual(set(server.push()), set(jars))
         for args in server.adb.cmd.call_args_list:
@@ -153,7 +153,7 @@ class TestAutomatorServer_Stop(unittest.TestCase):
             self.assertEqual(args[0][2], "/data/local/tmp/")
 
     def test_stop_started_server(self):
-        server = AutomatorServer()
+        server = _create_server_for_test()
         server.adb = MagicMock()
         server.uiautomator_process = process = MagicMock()
         process.poll.return_value = None
@@ -174,7 +174,7 @@ class TestAutomatorServer_Stop(unittest.TestCase):
             b"USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME\rsystem    372   126   635596 104808 ffffffff 00000000 S uiautomator"
         ]
         for r in results:
-            server = AutomatorServer()
+            server = _create_server_for_test()
             server.adb = MagicMock()
             server.adb.cmd.return_value.communicate.return_value = (r, "")
             server.stop()
