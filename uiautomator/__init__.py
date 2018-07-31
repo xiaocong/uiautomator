@@ -904,6 +904,10 @@ class AutomatorDeviceUiObject(object):
         else:
             return self.jsonrpc.setText(self.selector, text)
 
+    def get_text(self):
+        ''' get the text from field '''
+        return self.jsonrpc.getText(self.selector)
+
     def clear_text(self):
         '''clear text. alias for set_text(None).'''
         self.set_text(None)

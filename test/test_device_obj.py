@@ -116,6 +116,16 @@ class TestDeviceObj(unittest.TestCase):
         self.assertEqual(self.jsonrpc.setText.call_args_list,
                          [call(self.obj.selector, t) for t in texts])
 
+    def test_get_text(self):
+        self.jsonrpc.clearTextField = MagicMock()
+        self.jsonrpc.setText.return_value = False
+
+        texts = ["abc", "123", "()#*$&"]
+        for text in texts:
+            self.jsonrpc.getText.return_value = text
+            self.assertFalse(self.obj.set_text(text))
+            self.assertEqual(text, self.obj.get_text())
+
     def test_click(self):
         self.jsonrpc.click.return_value = False
         corners = ["tl", "topleft", "br", "bottomright"]
