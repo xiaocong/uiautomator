@@ -37,7 +37,7 @@ d(text="Clock").click()
   from uiautomator import device as d
   ```
 
-- Speficy the serial number when retrieving the device object
+- Specify the serial number when retrieving the device object
 
   ```python
   from uiautomator import Device
@@ -45,9 +45,9 @@ d(text="Clock").click()
   d = Device('014E05DE0F02000E')
   ```
 
-- Speficy the adb server host and port running on other computer
+- Specify the adb server host and port running on other computer
 
-    Although adb supports `-a` option since SDK 4.3, but now it has a bug on it. The only way to start adb server listenning on all interfaces instead of localhost, is `adb -a -P 5037 fork-server server &`
+    Although adb supports `-a` option since SDK 4.3, but now it has a bug on it. The only way to start adb server listening on all interfaces instead of localhost, is `adb -a -P 5037 fork-server server &`
 
   ```python
   from uiautomator import Device
@@ -207,13 +207,13 @@ This part show the normal actions of the device through some simple examples.
   -   `natural` or `n`
   -   `left` or `l`
   -   `right` or `r`
-  -   `upsidedown` or `u` (can not be set)
+  -   `upsidedown` or `u` (cannot be set)
 
   ```python
   # retrieve orientation, it may be "natural" or "left" or "right" or "upsidedown"
   orientation = d.orientation
   # set orientation and freeze rotation.
-  # notes: "upsidedown" can not be set until Android 4.3.
+  # notes: "upsidedown" cannot be set until Android 4.3.
   d.orientation = "l" # or "left"
   d.orientation = "r" # or "right"
   d.orientation = "n" # or "natural"
@@ -231,14 +231,14 @@ This part show the normal actions of the device through some simple examples.
 * Take screenshot
 
   ```python
-  # take screenshot and save to local file "home.png", can not work until Android 4.2.
+  # take screenshot and save to local file "home.png", cannot work until Android 4.2.
   d.screenshot("home.png")
   ```
 
 * Dump Window Hierarchy
 
   ```python
-  # dump the widown hierarchy and save to local file "hierarchy.xml"
+  # dump the window hierarchy and save to local file "hierarchy.xml"
   d.dump("hierarchy.xml")
   # or get the dumped content(unicode) from return.
   xml = d.dump()
@@ -247,9 +247,9 @@ This part show the normal actions of the device through some simple examples.
 * Open notification or quick settings
 
   ```python
-  # open notification, can not work until Android 4.3.
+  # open notification, cannot work until Android 4.3.
   d.open.notification()
-  # open quick settings, can not work until Android 4.3.
+  # open quick settings, cannot work until Android 4.3.
   d.open.quick_settings()
   ```
 
@@ -264,12 +264,12 @@ This part show the normal actions of the device through some simple examples.
 
 ### Watcher
 
-You can register [watcher](http://developer.android.com/tools/help/uiautomator/UiWatcher.html) to perform some actions when a selector can not find a match.
+You can register [watcher](http://developer.android.com/tools/help/uiautomator/UiWatcher.html) to perform some actions when a selector cannot find a match.
 
 
 * Register Watcher
 
-  When a selector can not find a match, uiautomator will run all registered watchers.
+  When a selector cannot find a match, uiautomator will run all registered watchers.
 
   - Click target when conditions match
 
@@ -292,7 +292,7 @@ You can register [watcher](http://developer.android.com/tools/help/uiautomator/U
   # d.watcher(name) ## creates a new named watcher.
   #  .when(condition)  ## the UiSelector condition of the watcher.
   #  .press.<keyname>.....<keyname>.()  ## press keys one by one in sequence.
-  #  Alternavie way defining key sequence is press(<keybname>, ..., <keyname>)
+  #  Alternative way defining key sequence is press(<keybname>, ..., <keyname>)
   ```
 
 * Check if the named watcher triggered
@@ -350,7 +350,7 @@ You can register [watcher](http://developer.android.com/tools/help/uiautomator/U
 
 ### Handler
 
-The functionality of handler is same as Watcher, except it is implemented ourside of Android uiautomator. The most different usage between handler and watcher is, handler can use customized callback function.
+The functionality of handler is same as Watcher, except it is implemented outside of Android uiautomator. The most different usage between handler and watcher is, handler can use customized callback function.
 
 ```python
 def fc_close(device):
@@ -447,7 +447,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
   ![settings](https://raw.github.com/xiaocong/uiautomator/master/docs/img/settings.png)
 
   We want to click the switch at the right side of text 'Wi‑Fi' to turn on/of Wi‑Fi.
-  As there are several switches with almost the same properties, so we can not use like
+  As there are several switches with almost the same properties, so we cannot use like
   `d(className="android.widget.Switch")` to select the ui object. Instead, we can use
   code below to select it.
 
@@ -585,7 +585,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 * Drag the ui object to another point or ui object 
 
   ```python
-  # notes : drag can not be set until Android 4.3.
+  # notes : drag cannot be set until Android 4.3.
   # drag the ui object to point (x, y)
   d(text="Settings").drag.to(x, y, steps=100)
   # drag the ui object to another ui object(center)
@@ -622,7 +622,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
   - `Out`, from center to edge
 
   ```python
-  # notes : pinch can not be set until Android 4.3.
+  # notes : pinch cannot be set until Android 4.3.
   # from edge to center. here is "In" not "in"
   d(text="Settings").pinch.In(percent=100, steps=10)
   # from center to edge
@@ -696,6 +696,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 - Qian Jin ([@QianJin2013][])
 - Xu Jingjie ([@xiscoxu][])
 - Xia Mingyuan ([@mingyuan-xia][])
+- Faruk Gelisgen ([@swifthfg][])
 
 [@xiaocong]: https://github.com/xiaocong
 [@yuanyuan]: https://github.com/yuanyuanzou
