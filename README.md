@@ -703,6 +703,7 @@ Selector supports below parameters. Refer to [UiSelector java doc](http://develo
 [@QianJin2013]: https://github.com/QianJin2013
 [@xiscoxu]: https://github.com/xiscoxu
 [@mingyuan-xia]: https://github.com/mingyuan-xia
+[@swifthfg]: https://github.com/swifthfg
 
 ## Issues & Discussion
 
