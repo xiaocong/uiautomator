@@ -38,6 +38,8 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
+u2_version_code=2
+
 
 def U(x):
     if sys.version_info.major == 2:
@@ -328,6 +330,20 @@ class Adb(object):
         '''adb version'''
         match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
         return [match.group(i) for i in range(4)]
+    
+    def getVersionCode(self, packageName):
+        '''adb dumpsys package myPackageName'''
+        versionCode = 0
+        try:
+            out = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0]
+            for line in out.strip().splitlines():
+                tmp = line.strip()
+                if tmp.startswith("versionCode="):
+                    versionCode = int(tmp.split(" ")[0].split("=")[1])
+                    break
+        except:
+            pass
+        return versionCode
 
 
 _init_local_port = LOCAL_PORT - 1
@@ -402,7 +418,7 @@ class AutomatorServer(object):
     def install(self):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
-            self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
+            self.adb.cmd("install", "-r", "-t", os.path.join(base_dir, apk)).wait()
 
     @property
     def jsonrpc(self):
@@ -467,13 +483,13 @@ class AutomatorServer(object):
                 ["-c", "com.github.uiautomatorstub.Stub"]
             ))
         else:
-            self.install()
+            if self.checkVersion():
+                self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
-
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]    
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
-
+        time.sleep(4)
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
@@ -485,6 +501,11 @@ class AutomatorServer(object):
             return self.__jsonrpc().ping()
         except:
             return None
+    
+    def checkVersion(self):
+        ''' check uiautomator apk version '''
+        version_code = self.adb.getVersionCode('com.github.uiautomator')
+        return True if u2_version_code > version_code else False
 
     @property
     def alive(self):
@@ -513,6 +534,11 @@ class AutomatorServer(object):
                         self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
         except:
             pass
+        try:
+            self.adb.cmd("shell", "am", "force-stop", 'com.github.uiautomator').wait()
+        except:
+            pass
+            
 
     @property
     def stop_uri(self):
