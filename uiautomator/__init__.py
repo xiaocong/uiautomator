@@ -38,7 +38,7 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
-u2_version_code=2
+u2_version_code=3
 
 
 def U(x):
@@ -111,6 +111,7 @@ class JsonRPCMethod(object):
             data["params"] = kwargs
         jsonresult = {"result": ""}
         if os.name == "nt":
+#             print 'start post ' + str(data)
             res = self.pool.urlopen("POST",
                                     self.url,
                                     headers={"Content-Type": "application/json"},
@@ -486,7 +487,7 @@ class AutomatorServer(object):
             if self.checkVersion():
                 self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]    
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
         time.sleep(4)
@@ -887,6 +888,26 @@ class AutomatorDevice(object):
     def exists(self, **kwargs):
         '''Check if the specified ui object by kwargs exists.'''
         return self(**kwargs).exists
+    
+    @property
+    def toast(self):
+        devive_self = self
+
+        class _Toast(object):
+            def on(self):
+                return devive_self.server.jsonrpc.toast('on')
+
+            def off(self):
+                return devive_self.server.jsonrpc.toast('off')
+
+            def __call__(self, action):
+                if action == "on":
+                    return self.on()
+                elif action == "off":
+                    return self.off()
+                else:
+                    raise AttributeError("Invalid parameter: %s" % action)
+        return _Toast()
 
 Device = AutomatorDevice
 
