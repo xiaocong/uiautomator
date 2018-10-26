@@ -12,7 +12,8 @@ requires = [
 test_requires = [
     'nose>=1.0',
     'mock>=1.0.1',
-    'coverage>=3.6'
+    'coverage>=3.6',
+    'pillow'
 ]
 
 version = '0.3.2'
