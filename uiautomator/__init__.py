@@ -14,6 +14,7 @@ import socket
 import re
 import collections
 import xml.dom.minidom
+from imgUtil import ImageUtil
 
 DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
@@ -111,7 +112,7 @@ class JsonRPCMethod(object):
             data["params"] = kwargs
         jsonresult = {"result": ""}
         if os.name == "nt":
-#             print 'start post ' + str(data)
+            print 'start post ' + str(data)
             res = self.pool.urlopen("POST",
                                     self.url,
                                     headers={"Content-Type": "application/json"},
@@ -552,11 +553,12 @@ class AutomatorServer(object):
     @property
     def screenshot_uri(self):
         return "http://%s:%d/screenshot/0" % (self.adb.adb_server_host, self.local_port)
+    
 
     def screenshot(self, filename=None, scale=1.0, quality=100):
         if self.sdk_version() >= 18:
             try:
-                req = urllib2.Request("%s?scale=%f&quality=%f" % (self.screenshot_uri, scale, quality))
+                req = urllib2.Request("%s?scale=%s&quality=%s" % (self.screenshot_uri, scale, quality))
                 result = urllib2.urlopen(req, timeout=30)
                 if filename:
                     with open(filename, 'wb') as f:
@@ -648,15 +650,13 @@ class AutomatorDevice(object):
         result = self.server.screenshot(filename, scale, quality)
         if result:
             return result
-
-        device_file = self.server.jsonrpc.takeScreenshot("screenshot.png",
-                                                         scale, quality)
-        if not device_file:
-            return None
-        p = self.server.adb.cmd("pull", device_file, filename)
+        png = "/data/local/tmp/screen_shot.png"
+        self.server.adb.cmd("shell", "screencap", "-p", png)
+        p = self.server.adb.cmd("pull", png, filename)
         p.wait()
-        self.server.adb.cmd("shell", "rm", device_file).wait()
-        return filename if p.returncode is 0 else None
+        self.server.adb.cmd("shell", "rm", png).wait()
+        if os.path.exists(filename):
+            return filename
 
     def freeze_rotation(self, freeze=True):
         '''freeze or unfreeze the device rotation in current status.'''
@@ -891,23 +891,35 @@ class AutomatorDevice(object):
     
     @property
     def toast(self):
-        devive_self = self
+        device_self = self
 
         class _Toast(object):
             def on(self):
-                return devive_self.server.jsonrpc.toast('on')
-
+                return device_self.server.jsonrpc.toast('on')
             def off(self):
-                return devive_self.server.jsonrpc.toast('off')
-
-            def __call__(self, action):
-                if action == "on":
-                    return self.on()
-                elif action == "off":
-                    return self.off()
-                else:
-                    raise AttributeError("Invalid parameter: %s" % action)
+                return device_self.server.jsonrpc.toast('off')
         return _Toast()
+    
+    @property
+    def img(self):
+        device_self = self
+        class _Img(object):
+            def find_img_position(self, query, origin, algorithm='sift', radio=0.75):
+                return ImageUtil.find_image_positon(query, origin, algorithm, radio)
+            def crop(self, startx, starty, endx, endy, scrfile, destfile):
+                return ImageUtil.crop(startx, starty, endx, endy, scrfile, destfile)
+            def compare(self,file1,file2):
+                return ImageUtil.compare(file1,file2)
+            def click(self, origin, query, algorithm='sift', radio=0.75):
+                if origin:
+                    location = ImageUtil.find_image_positon(query, origin, algorithm, radio)
+                    if location:
+                        device_self.click(location[0],location[1])
+                    else:
+                        raise AssertionError("not find img") 
+                else:
+                    raise IOError('not origin img')
+        return _Img()
 
 Device = AutomatorDevice
 
