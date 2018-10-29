@@ -652,9 +652,8 @@ class AutomatorDevice(object):
         if result:
             return result
         png = "/data/local/tmp/screen_shot.png"
-        self.server.adb.cmd("shell", "screencap", "-p", png)
-        p = self.server.adb.cmd("pull", png, filename)
-        p.wait()
+        self.server.adb.cmd("shell", "screencap", "-p", png).wait()
+        self.server.adb.cmd("pull", png, filename).wait()
         self.server.adb.cmd("shell", "rm", png).wait()
         if os.path.exists(filename):
             return filename
@@ -916,8 +915,8 @@ class AutomatorDevice(object):
                     return False
                 begin = time.time()
                 isExists = False
-                tmp = tempfile.mktemp()
-                src_img_path = device_self.screenshot(tmp)
+                src_img_path = tempfile.mktemp()
+                device_self.screenshot(src_img_path)
                 while (time.time() - begin < timeout):
                     time.sleep(interval)
                     device_self.screenshot(src_img_path)
@@ -929,20 +928,20 @@ class AutomatorDevice(object):
                         pass
                     if not isExists:
                         time.sleep(interval)
-                        device_self.__del_file(tmp)
+                        del_file(src_img_path)
                         continue
-                    device_self.__del_file(tmp)
+                    del_file(src_img_path)
                     return isExists
                 
             def click(self, query, origin=None, algorithm='sift', radio=0.75):
                 src_img_path = origin 
-                if src_img_path is not None:
-                    tmp = tempfile.mktemp()
-                    src_img_path = device_self.screenshot(tmp)
+                if src_img_path is None:
+                    src_img_path = tempfile.mktemp()
+                    device_self.screenshot(src_img_path)
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    location = ImageUtil.find_image_positon(query, origin, algorithm, radio)
+                    location = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio)
                     if location:
                         device_self.click(location[0],location[1])
                     else:
@@ -951,8 +950,7 @@ class AutomatorDevice(object):
                     raise
                 finally:
                     if origin:
-                        if os.path.exists(src_img_path):
-                            os.remove(src_img_path)
+                        del_file(src_img_path)
         return _Img()
     
     @property
@@ -965,27 +963,25 @@ class AutomatorDevice(object):
                 begin = time.time()
                 isExists = False
                 tmp = tempfile.mktemp()
-                src_img_path = device_self.screenshot(tmp)
                 while (time.time() - begin < timeout):
-                    time.sleep(interval)
-                    device_self.screenshot(src_img_path)
-                    isExists = isMatch(query, src_img_path, threshold)
+                    device_self.screenshot(tmp)
+                    isExists = isMatch(query, tmp, threshold)
                     if not isExists:
                         time.sleep(interval)
-                        device_self.__del_file(tmp)
+                        del_file(tmp)
                         continue
-                    device_self.__del_file(tmp)
+                    del_file(tmp)
                     return isExists
                 
             def click(self, query, origin=None, threshold=0.01, rotation=0):
                 src_img_path = origin 
-                if src_img_path is not None:
-                    tmp = tempfile.mktemp()
-                    src_img_path = device_self.screenshot(tmp)
+                if src_img_path is None:
+                    src_img_path = tempfile.mktemp()
+                    device_self.screenshot(src_img_path)
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    pos = getMatchedCenterOffset(subPath=query, srcPath=origin, threshold=0.01, rotation=rotation)
+                    pos = getMatchedCenterOffset(subPath=query, srcPath=src_img_path, threshold=0.01, rotation=rotation)
                     if pos:
                         device_self.click(pos[0], pos[1])
                     else:
@@ -994,12 +990,12 @@ class AutomatorDevice(object):
                     raise
                 finally:
                     if origin:
-                        device_self.__del_file(src_img_path)
+                        del_file(src_img_path)
         return _Img()
     
-    def __del_file(self,path):
-        if os.path.exists(path): 
-            os.remove(path)
+def del_file(path):
+    if os.path.exists(path): 
+        os.remove(path)
 
 Device = AutomatorDevice
 

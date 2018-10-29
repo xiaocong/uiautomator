@@ -16,7 +16,7 @@ test_requires = [
     'pillow'
 ]
 
-version = '0.3.2'
+version = '0.3.6'
 
 setup(
     name='uiautomator',
