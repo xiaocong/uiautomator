@@ -45,7 +45,7 @@ def isMatch(subPath, srcPath, threshold=0.01):
     except:
         return False
     
-def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0):
+def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0, color=cv2.IMREAD_COLOR):
     '''
     get the coordinate of the mathced sub image center point.
     @type subPath: string
@@ -63,17 +63,18 @@ def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0):
     for img in [subPath, srcPath]: assert os.path.exists(img) , "No such image:  %s" % (img)
     method = cv2.cv.CV_TM_SQDIFF_NORMED #Parameter specifying the comparison method 
     try:
-        subImg = cv2.imread(subPath) #Load the sub image
-        srcImg = cv2.imread(srcPath) #Load the src image
+        subImg = cv2.imread(subPath,color) #Load the sub image
+        srcImg = cv2.imread(srcPath,color) #Load the src image
         result = cv2.matchTemplate(subImg, srcImg, method) #comparision
         minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(result) #Get the minimum squared difference
         if minVal <= threshold: #Compared with the expected similarity
             minLocXPoint, minLocYPoint = minLoc
             subImgRow, subImgColumn = subImg.shape[:2]
-            centerPoint = (minLocXPoint + int(subImgRow/2), minLocYPoint + int(subImgColumn/2))
+            centerPointX = minLocXPoint + int(subImgRow/2)
+            centerPointY =  minLocYPoint + int(subImgColumn/2)
             #if image is binary format shape return (w, h) else return (w, h, d)
             (height, width) = srcImg.shape[:2]
-
+            centerPoint = (minLocXPoint if centerPointX > width else centerPointX, minLocYPoint if centerPointY > height else centerPointY )
             return adaptRotation(coord=centerPoint, size=(height, width), rotation=rotation)
         else:
             return None    
@@ -106,10 +107,9 @@ def adaptRotation(coord, size, rotation=0):
 
 #test method
 if __name__ == '__main__':
-    pass
-    #print isMatch(subPath='sub1.png', srcPath='full1.png', threshold=0.1)
-    #print getMatchCenterOffset(subPath='sub1.png', srcPath='full1.png', threshold=0.01)
-    #print download("http://ats.borqs.com/smartserver/static/img/logo-s.png")
+    print isMatch(subPath='sub.png', srcPath='full.png', threshold=0.1)
+    print getMatchedCenterOffset(subPath='sub.png', srcPath='full.png', threshold=0.01)
+   
     
     
 
