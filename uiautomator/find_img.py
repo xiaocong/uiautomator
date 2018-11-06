@@ -1,5 +1,8 @@
 #coding=utf-8
-import cv2
+try:
+    import cv2
+except ImportError, e:
+    print e
 
 import numpy as np
 

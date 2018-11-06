@@ -16,6 +16,7 @@ import collections
 import xml.dom.minidom
 from imgUtil import ImageUtil
 from comparison import isMatch, getMatchedCenterOffset
+from chromdriver import ChromeDriver
 
 DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
@@ -320,6 +321,10 @@ class Adb(object):
     def forward(self, local_port, device_port):
         '''adb port forward. return 0 if success, else non-zero.'''
         return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+    
+    def forward_localabstract(self,local_port, localabstract):
+        '''adb port forward. return 0 if success, else non-zero.'''
+        return self.cmd("forward", "tcp:%d" % local_port, localabstract).wait()
 
     def forward_list(self):
         '''adb forward --list'''
@@ -328,6 +333,9 @@ class Adb(object):
             raise EnvironmentError("Low adb version.")
         lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
         return [line.strip().split() for line in lines]
+      
+    def remove_forward_port(self,port):
+        self.cmd("forward", "--remove", "tcp:%d" % port).wait()
 
     def version(self):
         '''adb version'''
@@ -347,7 +355,14 @@ class Adb(object):
         except:
             pass
         return versionCode
-
+    
+    def current_app(self):
+        '''return packagename activity'''
+        out = self.cmd('shell','dumpsys', 'window', 'w').communicate()[0] 
+        for line in out.strip().splitlines():
+            if 'name' in line and '/' in line:
+                package_activity = line[(line.find("name=")+5):-1].split('/')
+                return package_activity[0],package_activity[1]
 
 _init_local_port = LOCAL_PORT - 1
 
@@ -594,6 +609,12 @@ class AutomatorDevice(object):
             adb_server_host=adb_server_host,
             adb_server_port=adb_server_port
         )
+        self.adb = self.server.adb
+        if serial:
+            self.serial = serial
+        else:
+            self.serial = self.adb.device_serial()
+       
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -954,7 +975,7 @@ class AutomatorDevice(object):
         return _Img()
     
     @property
-    def img_tm(self):
+    def img(self):
         device_self = self
         class _Img(object):
             def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.01):
@@ -993,6 +1014,13 @@ class AutomatorDevice(object):
                         del_file(src_img_path)
         return _Img()
     
+    @property
+    def webview(self):
+        return ChromeDriver(self)
+    
+    def quit(self):
+        self.server.stop()
+        
 def del_file(path):
     if os.path.exists(path): 
         os.remove(path)
