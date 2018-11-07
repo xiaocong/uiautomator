@@ -70,8 +70,8 @@ def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0, color=c
         if minVal <= threshold: #Compared with the expected similarity
             minLocXPoint, minLocYPoint = minLoc
             subImgRow, subImgColumn = subImg.shape[:2]
-            centerPointX = minLocXPoint + int(subImgRow/2)
-            centerPointY =  minLocYPoint + int(subImgColumn/2)
+            centerPointX = minLocXPoint + int(subImgColumn/2)
+            centerPointY =  minLocYPoint + int(subImgRow/2)
             #if image is binary format shape return (w, h) else return (w, h, d)
             (height, width) = srcImg.shape[:2]
             centerPoint = (minLocXPoint if centerPointX > width else centerPointX, minLocYPoint if centerPointY > height else centerPointY )
