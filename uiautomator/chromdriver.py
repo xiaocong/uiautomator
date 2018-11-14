@@ -6,6 +6,7 @@ Created on 2018年10月30日
 import subprocess,time
 import json,os,sys,re,socket
 from selenium import webdriver
+from distutils.version import StrictVersion
 
 try:
     import urllib2
@@ -15,49 +16,95 @@ except ImportError:
 class RestartException(Exception):
     pass
 
+# CHROM_VERSION_MAP = {
+#     # Chromedriver version map
+#     "2.43": "69-71",
+#     "2.42": "68-70",
+#     "2.41": "67-69",
+#     "2.40": "66-68",
+#     "2.39": "66-68",
+#     "2.38": "65-67",
+#     "2.37": "64-66",
+#     "2.36": "63-65",
+#     "2.35": "62-64",
+#     "2.34": "61-63",
+#     "2.33": "60-62",
+#     "2.32": "59-61",
+#     "2.31": "58-60",
+#     "2.30": "58-60",
+#     "2.29": "56-58",
+#     "2.28": "55-57",
+#     "2.27": "54-56",
+#     "2.26": "53-55",
+#     "2.25": "53-55",
+#     "2.24": "52-54",
+#     "2.23": "51-53",
+#     "2.22": "49-52",
+#     "2.21": "46-50",
+#     "2.20": "43-48",
+#     "2.19": "43-47",
+#     "2.18": "43-46",
+#     "2.17": "42-43",
+#     "2.13": "42-45",
+#     "2.15": "40-43",
+#     "2.14": "39-42",
+#     "2.13": "38-41",
+#     "2.12": "36-40",
+#     "2.11": "36-40",
+#     "2.10": "33-36",
+#     "2.9": "31-34",
+#     "2.8": "30-33",
+#     "2.7": "30-33",
+#     "2.6": "29-32",
+#     "2.5": "29-32",
+#     "2.4": "29-32",
+#     }
 CHROM_VERSION_MAP = {
-    # Chromedriver version map
-    "2.43": "69-71",
-    "2.42": "68-70",
-    "2.41": "67-69",
-    "2.40": "66-68",
-    "2.39": "66-68",
-    "2.38": "65-67",
-    "2.37": "64-66",
-    "2.36": "63-65",
-    "2.35": "62-64",
-    "2.34": "61-63",
-    "2.33": "60-62",
-    "2.32": "59-61",
-    "2.31": "58-60",
-    "2.30": "58-60",
-    "2.29": "56-58",
-    "2.28": "55-57",
-    "2.27": "54-56",
-    "2.26": "53-55",
-    "2.25": "53-55",
-    "2.24": "52-54",
-    "2.23": "51-53",
-    "2.22": "49-52",
-    "2.21": "46-50",
-    "2.20": "43-48",
-    "2.19": "43-47",
-    "2.18": "43-46",
-    "2.17": "42-43",
-    "2.13": "42-45",
-    "2.15": "40-43",
-    "2.14": "39-42",
-    "2.13": "38-41",
-    "2.12": "36-40",
-    "2.11": "36-40",
-    "2.10": "33-36",
-    "2.9": "31-34",
-    "2.8": "30-33",
-    "2.7": "30-33",
-    "2.6": "29-32",
-    "2.5": "29-32",
-    "2.4": "29-32",
-    }
+    # Chromedriver version: minumum Chrome version
+  '2.42': '68.0.3440',
+  '2.41': '67.0.3396',
+  '2.40': '66.0.3359',
+  '2.39': '66.0.3359',
+  '2.38': '65.0.3325',
+  '2.37': '64.0.3282',
+  '2.36': '63.0.3239',
+  '2.35': '62.0.3202',
+  '2.34': '61.0.3163',
+  '2.33': '60.0.3112',
+  '2.32': '59.0.3071',
+  '2.31': '58.0.3029',
+  '2.30': '58.0.3029',
+  '2.29': '57.0.2987',
+  '2.28': '55.0.2883',
+  '2.27': '54.0.2840',
+  '2.26': '53.0.2785',
+  '2.25': '53.0.2785',
+  '2.24': '52.0.2743',
+  '2.23': '51.0.2704',
+  '2.22': '49.0.2623',
+  '2.21': '46.0.2490',
+  '2.20': '43.0.2357',
+  '2.19': '43.0.2357',
+  '2.18': '43.0.2357',
+  '2.17': '42.0.2311',
+  '2.16': '42.0.2311',
+  '2.15': '40.0.2214',
+  '2.14': '39.0.2171',
+  '2.13': '38.0.2125',
+  '2.12': '36.0.1985',
+  '2.11': '36.0.1985',
+  '2.10': '33.0.1751',
+  '2.9': '31.0.1650',
+  '2.8': '30.0.1573',
+  '2.7': '30.0.1573',
+  '2.6': '29.0.1545',
+  '2.5': '29.0.1545',
+  '2.4': '29.0.1545',
+  '2.3': '28.0.1500',
+  '2.2': '27.0.1453',
+  '2.1': '27.0.1453',
+  '2.0': '27.0.1453',
+  }
 
 LOCAL_PORT = 8000
 _init_local_port = 8000
@@ -93,6 +140,7 @@ class ChromeDriver(object):
         self.chrome_version = None
         self.process = None
         self.d = d
+        self.serial = self.d.adb.device_serial()
         self.port = next_local_port()
         self.wd = None 
 
@@ -109,15 +157,17 @@ class ChromeDriver(object):
         info = self.get_http("http://localhost:"+str(self.port)+"/json/version")
         try:
             if info is None:
-                raise AssertionError('not get webview version on %s'%self.d.serial)
-            version = info['Browser'].split('/')[1][:2]
+                raise AssertionError('not get webview version on %s'%self.serial)
+#             version = info['Browser'].split('/')[1][:2] # first map
+            version = info['Browser'].split('/')[1]   # second map
             map_version = self._getChromVersionMap(version)
             if map_version:
                 return map_version
             else:
-                raise RuntimeError('not match webview version=%s on %s'%(version, self.d.serial))
+                raise RuntimeError('not match webview version=%s on %s'%(version, self.serial))
         finally:
             self.d.adb.remove_forward_port(self.port)
+    
     
     def get_app_process(self, packageName):
         '''get pid by package name'''
@@ -136,12 +186,19 @@ class ChromeDriver(object):
         except:
             pass    
 
-    def _getChromVersionMap(self, version):
-        '''get chrome driver refer to version'''
-        for key,value in sorted(CHROM_VERSION_MAP.items(),key=lambda x:int(x[0].replace(".","")),reverse=True):
-            t1 = version.split('.')
-            t2 = value.split('-')
-            if t1[0] >= t2[0] and t1[0]<= t2[1]:
+#     def _getChromVersionMap(self, version): #36,37
+#         '''get chrome driver refer to version first map'''
+#         for key,value in sorted(CHROM_VERSION_MAP.items(),key=lambda x:int(x[0].replace(".","")),reverse=True):
+#             t1 = version.split('.')
+#             t2 = value.split('-')
+#             if t1[0] >= t2[0] and t1[0]<= t2[1]:
+#                 return key
+            
+    def _getChromVersionMap(self, version): # 37.0.0.1
+        '''get chrome driver refer to version by second map'''
+        master = '.'.join(version.split('.')[:3])
+        for key,value in sorted(CHROM_VERSION_MAP.items(),key=lambda x:int(x[0].replace(".",""))):
+            if StrictVersion(value) >= StrictVersion(master):
                 return key
     
     def start_server(self, packageName):
@@ -151,7 +208,7 @@ class ChromeDriver(object):
                 self.chrome_version = self.find_chrom_driver(pid)
             self._launch_webdriver()
         else:
-            raise AssertionError('not exist webview on %s'%self.d.serial)
+            raise AssertionError('not exist webview on %s'%self.serial)
         
     def driver(self, package=None, activity=None, attach=True, process=None):
         """
@@ -179,10 +236,10 @@ class ChromeDriver(object):
                 time.sleep(0.1)
                 timeout -= 0.1
             else:
-                raise RuntimeError("chromedriver server not start, check chromedriver file exists?")
+                raise RuntimeError("chromedriver server not start, chrome version=%s, check chromedriver file exists?"%self.chrome_version)
         capabilities = {
             'chromeOptions': {
-                'androidDeviceSerial': self.d.serial,
+                'androidDeviceSerial': self.serial,
                 'androidPackage': package or app[0],
                 'androidUseRunningApp': attach,
                 'androidProcess': process or app[0],
@@ -190,6 +247,7 @@ class ChromeDriver(object):
             }
         }
         self.wd = webdriver.Remote('http://localhost:%d/wd/hub'%self.port, capabilities)
+        self.wd.implicitly_wait(10)
         return self
     
     def refresh(self, **kargs):
@@ -215,7 +273,7 @@ class ChromeDriver(object):
     def _release_port(self):
         try:
             for s, lp, rp in self.d.adb.forward_list():
-                if s == self.d.serial and ("localabstract:webview_devtools_remote" in rp):
+                if s == self.serial and ("localabstract:webview_devtools_remote" in rp):
                     self.d.adb.cmd("forward","--remove", lp)  
         except:
             pass
@@ -269,9 +327,10 @@ class ChromeDriver(object):
 if __name__ == '__main__':
     from uiautomator import device as d
     driver = ChromeDriver(d).driver()
-    ele = driver.find_element_by_class_name("detail_anchor_item")
+    ele = driver.find_element_by_class_name("item")
     print ele.text
-    driver.refresh()
-    ele = driver.find_element_by_class_name("detail_anchor_item")
-    print ele.text
+#     print ele.text
+#     driver.refresh()
+#     ele = driver.find_element_by_class_name("detail_anchor_item")
+#     print ele.text
     

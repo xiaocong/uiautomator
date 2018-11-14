@@ -10,10 +10,11 @@ import time
 import itertools
 import json
 import hashlib
-import socket
+import socket,threading
 import re,tempfile
 import collections
 import xml.dom.minidom
+from functools import wraps
 from imgUtil import ImageUtil
 from comparison import isMatch, getMatchedCenterOffset
 from chromdriver import ChromeDriver
@@ -82,6 +83,27 @@ def param_to_property(*props, **kwprops):
                 return self.func(*new_args, **kwargs)
     return Wrapper
 
+def stopUiautomator(url):
+    port = url.split(":")[2].split("/")[0]
+    serial = None
+    try:
+        lines = systemCmd(['adb','forward','--list']).communicate()[0].decode("utf-8").strip().splitlines()
+        for s, lp, rp in [line.strip().split() for line in lines]:
+            if lp == 'tcp:%s'%port and rp=='tcp:9008':
+                serial = s
+                break
+    except:
+        pass
+    if serial:
+        os.system("adb -s %s shell am force-stop com.github.uiautomator"%serial)
+        
+
+def systemCmd(cmd_line):
+    '''exec system cmd, paramas list'''
+    if os.name != "nt":
+        cmd_line = [" ".join(cmd_line)]
+    return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
 
 class JsonRPCError(Exception):
 
@@ -91,8 +113,7 @@ class JsonRPCError(Exception):
 
     def __str__(self):
         return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
-
-
+    
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
@@ -103,7 +124,7 @@ class JsonRPCMethod(object):
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
-
+    
     def __call__(self, *args, **kwargs):
         if args and kwargs:
             raise SyntaxError("Could not accept both *args and **kwargs as JSONRPC parameters.")
@@ -113,30 +134,37 @@ class JsonRPCMethod(object):
         elif kwargs:
             data["params"] = kwargs
         jsonresult = {"result": ""}
-        if os.name == "nt":
-            print 'start post ' + str(data)
-            res = self.pool.urlopen("POST",
-                                    self.url,
-                                    headers={"Content-Type": "application/json"},
-                                    body=json.dumps(data).encode("utf-8"),
-                                    timeout=self.timeout)
-            jsonresult = json.loads(res.data.decode("utf-8"))
-        else:
-            result = None
-            try:
-                req = urllib2.Request(self.url,
-                                      json.dumps(data).encode("utf-8"),
-                                      {"Content-type": "application/json"})
-                result = urllib2.urlopen(req, timeout=self.timeout)
-                jsonresult = json.loads(result.read().decode("utf-8"))
-            finally:
-                if result is not None:
-                    result.close()
-        if "error" in jsonresult and jsonresult["error"]:
-            raise JsonRPCError(
-                jsonresult["error"]["code"],
-                "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
-            )
+        # add mintor timeout
+        t = threading.Timer(180, stopUiautomator, (self.url,))
+        t.setDaemon(True)
+        t.start()
+        try:
+#             print 'start post ' + self.url + str(data)
+            if os.name == "nt":
+                res = self.pool.urlopen("POST",
+                                        self.url,
+                                        headers={"Content-Type": "application/json"},
+                                        body=json.dumps(data).encode("utf-8"),
+                                        timeout=self.timeout)
+                jsonresult = json.loads(res.data.decode("utf-8"))
+            else:
+                result = None
+                try:
+                    req = urllib2.Request(self.url,
+                                          json.dumps(data).encode("utf-8"),
+                                          {"Content-type": "application/json"})
+                    result = urllib2.urlopen(req, timeout=self.timeout)
+                    jsonresult = json.loads(result.read().decode("utf-8"))
+                finally:
+                    if result is not None:
+                        result.close()
+            if "error" in jsonresult and jsonresult["error"]:
+                raise JsonRPCError(
+                    jsonresult["error"]["code"],
+                    "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
+                )
+        finally:
+            t.cancel()
         return jsonresult["result"]
 
     def id(self):
@@ -301,10 +329,10 @@ class Adb(object):
         if not self.default_serial:
             devices = self.devices()
             if devices:
-                if len(devices) is 1:
+                if len(devices):
                     self.default_serial = list(devices.keys())[0]
                 else:
-                    raise EnvironmentError("Multiple devices attached but default android serial not set.")
+                    raise EnvironmentError("not device found.")
             else:
                 raise EnvironmentError("Device not attached.")
         return self.default_serial
@@ -418,7 +446,7 @@ class AutomatorServer(object):
         else:
             try:  # first we will try to use the local port already adb forwarded
                 for s, lp, rp in self.adb.forward_list():
-                    if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
+                    if s == self.adb.device_serial() and rp == 'tcp:%s'%self.device_port:
                         self.local_port = int(lp[4:])
                         break
                 else:
@@ -491,8 +519,18 @@ class AutomatorServer(object):
             except:
                 pass
         return self.__sdk
-
-    def start(self, timeout=5):
+    
+    def start(self,timeout=5):
+        '''add retry 2 times'''
+        try:
+            time.sleep(4) # startup delay 4 seconds
+            self._start(timeout)
+        except:
+            self.stop()
+            time.sleep(4)
+            self._start(timeout)
+            
+    def _start(self, timeout=5):
         if self.sdk_version() < 18:
             files = self.push()
             cmd = list(itertools.chain(
@@ -610,11 +648,6 @@ class AutomatorDevice(object):
             adb_server_port=adb_server_port
         )
         self.adb = self.server.adb
-        if serial:
-            self.serial = serial
-        else:
-            self.serial = self.adb.device_serial()
-       
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))

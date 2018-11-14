@@ -7,16 +7,17 @@ except ImportError:
 
 
 requires = [
-    "urllib3>=1.7.1"
+    "urllib3>=1.7.1",
+    'selenium>=3.1',
+    'pillow'
 ]
 test_requires = [
     'nose>=1.0',
     'mock>=1.0.1',
     'coverage>=3.6',
-    'pillow'
 ]
 
-version = '0.3.6'
+version = '0.3.7.3'
 
 setup(
     name='uiautomator',
