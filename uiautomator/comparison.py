@@ -105,7 +105,7 @@ def adaptRotation(coord, size, rotation=0):
     else:
         return None
 
-#test method
+#test_set method
 if __name__ == '__main__':
     print isMatch(subPath='sub.png', srcPath='full.png', threshold=0.1)
     print getMatchedCenterOffset(subPath='sub.png', srcPath='full.png', threshold=0.01)

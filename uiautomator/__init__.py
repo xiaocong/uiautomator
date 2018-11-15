@@ -164,7 +164,11 @@ class JsonRPCMethod(object):
                     "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
                 )
         finally:
-            t.cancel()
+            try:
+                t.cancel()
+            except:
+                pass
+            
         return jsonresult["result"]
 
     def id(self):
@@ -431,7 +435,7 @@ class AutomatorServer(object):
         "uiautomator-stub.jar": "libs/uiautomator-stub.jar"
     }
 
-    __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test.apk"]
+    __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test_set.apk"]
 
     __sdk = 0
 
@@ -542,7 +546,7 @@ class AutomatorServer(object):
             if self.checkVersion():
                 self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
+                   "com.github.uiautomator.test_set/android.support.test_set.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
         time.sleep(4)

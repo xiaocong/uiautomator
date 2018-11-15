@@ -268,7 +268,7 @@ class ChromeDriver(object):
                 do (IF NOT %b=="" TASKKILL /F /PID %a))'.format(self.port, self.chrome_version)
             os.system(cmd)
         else:
-            os.system('pkill -15 -f "chromedriver%s.*--port=%s"'%(self.chrome_version, self.port))
+            os.system('pkill -9 -f "chromedriver%s.*--port=%s"'%(self.chrome_version, self.port))
     
     def _release_port(self):
         try:
@@ -329,8 +329,4 @@ if __name__ == '__main__':
     driver = ChromeDriver(d).driver()
     ele = driver.find_element_by_class_name("item")
     print ele.text
-#     print ele.text
-#     driver.refresh()
-#     ele = driver.find_element_by_class_name("detail_anchor_item")
-#     print ele.text
     
