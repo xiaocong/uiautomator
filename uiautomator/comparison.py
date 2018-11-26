@@ -19,7 +19,7 @@ try:
 except ImportError, e:
     print e
 
-def isMatch(subPath, srcPath, threshold=0.01):
+def isMatch(subPath, srcPath, threshold=0.01,colormode=1):
     '''
     check wether the subPath image exists in the srcPath image.
     @type subPath: string
@@ -34,8 +34,8 @@ def isMatch(subPath, srcPath, threshold=0.01):
     for img in [subPath, srcPath]: assert os.path.exists(img) , 'No such image:  %s' % (img)
     method = cv2.cv.CV_TM_SQDIFF_NORMED #Parameter specifying the comparison method 
     try:
-        subImg = cv2.imread(subPath) #Load the sub image
-        srcImg = cv2.imread(srcPath) #Load the src image
+        subImg = cv2.imread(subPath,colormode) #Load the sub image
+        srcImg = cv2.imread(srcPath,colormode) #Load the src image
         result = cv2.matchTemplate(subImg, srcImg, method) #comparision
         minVal = cv2.minMaxLoc(result)[0] #Get the minimum squared difference
         if minVal <= threshold: #Compared with the expected similarity
@@ -45,7 +45,7 @@ def isMatch(subPath, srcPath, threshold=0.01):
     except:
         return False
     
-def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0, color=cv2.IMREAD_COLOR):
+def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0, colormode=1):
     '''
     get the coordinate of the mathced sub image center point.
     @type subPath: string
@@ -63,8 +63,8 @@ def getMatchedCenterOffset(subPath, srcPath, threshold=0.01, rotation=0, color=c
     for img in [subPath, srcPath]: assert os.path.exists(img) , "No such image:  %s" % (img)
     method = cv2.cv.CV_TM_SQDIFF_NORMED #Parameter specifying the comparison method 
     try:
-        subImg = cv2.imread(subPath,color) #Load the sub image
-        srcImg = cv2.imread(srcPath,color) #Load the src image
+        subImg = cv2.imread(subPath,colormode) #Load the sub image
+        srcImg = cv2.imread(srcPath,colormode) #Load the src image
         result = cv2.matchTemplate(subImg, srcImg, method) #comparision
         minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(result) #Get the minimum squared difference
         if minVal <= threshold: #Compared with the expected similarity
@@ -105,7 +105,7 @@ def adaptRotation(coord, size, rotation=0):
     else:
         return None
 
-#test_set method
+#test method
 if __name__ == '__main__':
     print isMatch(subPath='sub.png', srcPath='full.png', threshold=0.1)
     print getMatchedCenterOffset(subPath='sub.png', srcPath='full.png', threshold=0.01)

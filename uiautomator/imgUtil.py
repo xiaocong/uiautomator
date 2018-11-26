@@ -23,10 +23,10 @@ class ImageUtil:
     image deal class
     '''
     @staticmethod
-    def find_image_positon(query, origin, algorithm='sift', radio=0.75):
+    def find_image_positon(query, origin, algorithm='sift', radio=0.75, colormode=1):
         if not os.path.exists(query):
             raise IOError,('No such file or directory:%s'%query)
-        position = find_img_position(query, origin, algorithm, radio)
+        position = find_img_position(query, origin, algorithm, radio, colormode)
         return position
 
     @staticmethod

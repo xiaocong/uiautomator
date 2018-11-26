@@ -14,6 +14,7 @@ except ImportError:
     import urllib.request as urllib2
     
 class RestartException(Exception):
+    
     pass
 
 # CHROM_VERSION_MAP = {
@@ -114,7 +115,7 @@ def catchAttr(func):
     def wrapper(self, *args, **kargs):
         try:
             return func(self, *args, **kargs)
-        except(AssertionError, RestartException):
+        except(AssertionError, AttributeError):
             raise
         except:
             self.driver()
@@ -317,8 +318,8 @@ class ChromeDriver(object):
                     self.driver()
                     method = object.__getattribute__(self.wd, func.__name__)
                     return method(*args, **kargs)
-                except Exception,e:
-                    raise RestartException(e)
+                except:
+                    raise
         return wrapper
     
     def __exit__(self):
@@ -327,6 +328,6 @@ class ChromeDriver(object):
 if __name__ == '__main__':
     from uiautomator import device as d
     driver = ChromeDriver(d).driver()
-    ele = driver.find_element_by_class_name("item")
+    ele = driver.find_element_by1_class_name("itfem")
     print ele.text
     

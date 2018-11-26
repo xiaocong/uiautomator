@@ -435,7 +435,7 @@ class AutomatorServer(object):
         "uiautomator-stub.jar": "libs/uiautomator-stub.jar"
     }
 
-    __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test_set.apk"]
+    __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test.apk"]
 
     __sdk = 0
 
@@ -546,7 +546,7 @@ class AutomatorServer(object):
             if self.checkVersion():
                 self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test_set/android.support.test_set.runner.AndroidJUnitRunner"]  
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
         time.sleep(4)
@@ -704,17 +704,20 @@ class AutomatorDevice(object):
             content = U(xml_text.toprettyxml(indent='  '))
         return content
 
-    def screenshot(self, filename, scale=1.0, quality=100):
+    def screenshot(self, filename=None, scale=1.0, quality=100):
         '''take screenshot.'''
         result = self.server.screenshot(filename, scale, quality)
         if result:
             return result
+        if filename is None:
+            filename = tempfile.mktemp()
         png = "/data/local/tmp/screen_shot.png"
         self.server.adb.cmd("shell", "screencap", "-p", png).wait()
         self.server.adb.cmd("pull", png, filename).wait()
         self.server.adb.cmd("shell", "rm", png).wait()
         if os.path.exists(filename):
-            return filename
+            with open(filename,'rb') as f:
+                return f.read()
 
     def freeze_rotation(self, freeze=True):
         '''freeze or unfreeze the device rotation in current status.'''
@@ -962,10 +965,10 @@ class AutomatorDevice(object):
     def img_tz(self):
         device_self = self
         class _Img(object):
-            def exists(self, query, origin=None, interval=2, timeout=4, algorithm='sift', radio=0.75):
+            def exists(self, query, origin=None, interval=2, timeout=4, algorithm='sift', radio=0.75,colormode=1):
                 if origin:
                     try:
-                        pos = ImageUtil.find_image_positon(query, origin, algorithm, radio)
+                        pos = ImageUtil.find_image_positon(query, origin, algorithm, radio,colormode)
                         if pos:
                             return True
                     except:
@@ -979,7 +982,7 @@ class AutomatorDevice(object):
                     time.sleep(interval)
                     device_self.screenshot(src_img_path)
                     try:
-                        pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio)
+                        pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio,colormode)
                         if pos:
                             isExists = True  
                     except:
@@ -990,8 +993,15 @@ class AutomatorDevice(object):
                         continue
                     del_file(src_img_path)
                     return isExists
+             
+            def click(self, query, origin=None, algorithm='sift', radio=0.75, colormode=1):
+                pos = self.get_location(query, origin, algorithm, radio, colormode)
+                if pos:
+                    device_self.click(pos[0],pos[1])
+                else:
+                    raise AssertionError("not find img") 
                 
-            def click(self, query, origin=None, algorithm='sift', radio=0.75):
+            def get_location(self, query, origin=None, algorithm='sift', radio=0.75,colormode=1):
                 src_img_path = origin 
                 if src_img_path is None:
                     src_img_path = tempfile.mktemp()
@@ -999,9 +1009,9 @@ class AutomatorDevice(object):
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    location = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio)
-                    if location:
-                        device_self.click(location[0],location[1])
+                    pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio,colormode)
+                    if pos:
+                        device_self.click(pos[0],pos[1])
                     else:
                         raise AssertionError("not find img") 
                 except:
@@ -1009,21 +1019,22 @@ class AutomatorDevice(object):
                 finally:
                     if origin:
                         del_file(src_img_path)
+            
         return _Img()
     
     @property
     def img(self):
         device_self = self
         class _Img(object):
-            def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.01):
+            def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.01,colormode=1):
                 if origin:
-                    return isMatch(query, origin, threshold)
+                    return isMatch(query, origin, threshold,colormode)
                 begin = time.time()
                 isExists = False
                 tmp = tempfile.mktemp()
                 while (time.time() - begin < timeout):
                     device_self.screenshot(tmp)
-                    isExists = isMatch(query, tmp, threshold)
+                    isExists = isMatch(query, tmp, threshold,colormode)
                     if not isExists:
                         time.sleep(interval)
                         del_file(tmp)
@@ -1031,7 +1042,14 @@ class AutomatorDevice(object):
                     del_file(tmp)
                     return isExists
                 
-            def click(self, query, origin=None, threshold=0.01, rotation=0):
+            def click(self, query, origin=None, threshold=0.01, rotation=0,colormode=1):
+                pos = self.get_location(query, origin, threshold, rotation, colormode)
+                if pos:
+                    device_self.click(pos[0], pos[1])
+                else:
+                    raise AssertionError("not find img") 
+       
+            def get_location(self, query, origin=None, threshold=0.01, rotation=0,colormode=1):
                 src_img_path = origin 
                 if src_img_path is None:
                     src_img_path = tempfile.mktemp()
@@ -1039,11 +1057,8 @@ class AutomatorDevice(object):
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    pos = getMatchedCenterOffset(subPath=query, srcPath=src_img_path, threshold=0.01, rotation=rotation)
-                    if pos:
-                        device_self.click(pos[0], pos[1])
-                    else:
-                        raise AssertionError("not find img") 
+                    pos = getMatchedCenterOffset(subPath=query, srcPath=src_img_path, threshold=0.01, rotation=rotation,colormode)
+                    return pos
                 except:
                     raise
                 finally:

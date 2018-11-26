@@ -87,7 +87,7 @@ def _find_position(img1, H = None):
 #         return None
     return _middlePoint(corners)
 
-def find_img_position(query, origin, algorithm='sift',radio=0.75):
+def find_img_position(query, origin, algorithm='sift',radio=0.75, colormode=1):
     '''
       return position of query in origin,by ratio and algorithm
     :Args:
@@ -98,8 +98,8 @@ def find_img_position(query, origin, algorithm='sift',radio=0.75):
     :Usage:
       find_img_position('query.png','qq.png','sift', 0.75)  
     '''
-    img1 = cv2.imread(query, 0)
-    img2 = cv2.imread(origin, 0)
+    img1 = cv2.imread(query, colormode)
+    img2 = cv2.imread(origin, colormode)
     detector, matcher = init_feature(algorithm)
     kp1, desc1 = detector.detectAndCompute(img1, None)
     kp2, desc2 = detector.detectAndCompute(img2, None)
