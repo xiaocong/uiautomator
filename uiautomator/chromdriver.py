@@ -6,6 +6,7 @@ Created on 2018年10月30日
 import subprocess,time
 import json,os,sys,re,socket
 from selenium import webdriver
+from hashlib import md5
 from distutils.version import StrictVersion
 
 try:
@@ -14,7 +15,6 @@ except ImportError:
     import urllib.request as urllib2
     
 class RestartException(Exception):
-    
     pass
 
 # CHROM_VERSION_MAP = {
@@ -130,7 +130,7 @@ def is_port_listening(port, adbHost=None):
 
 def next_local_port(adbHost=None):
     global _init_local_port
-    _init_local_port = _init_local_port + 1 if _init_local_port < 32764 else LOCAL_PORT
+    _init_local_port = _init_local_port + 1 if _init_local_port < 8500 else LOCAL_PORT
     while is_port_listening(_init_local_port):
         _init_local_port += 1
     return _init_local_port
@@ -140,20 +140,26 @@ class ChromeDriver(object):
     def __init__(self, d):
         self.chrome_version = None
         self.process = None
+        self.port = None
+        self.wd = None 
         self.d = d
         self.serial = self.d.adb.device_serial()
-        self.port = next_local_port()
-        self.wd = None 
+        self.url_prefix = md5(self.serial.encode("utf-8")).hexdigest()
 
     def _launch_webdriver(self):
-        self.quit()
-        cmd_line = ["chromedriver" + self.chrome_version, '--port=%s'%self.port, '--adb-port=5037','--url-base=wd/hub']
+        if is_port_listening(int(self.port)):
+            self.port = next_local_port()
+        cmd_line = ["chromedriver" + self.chrome_version, 
+                    '--port=%s'%self.port, '--adb-port=5037',
+                    '--url-base=%s/hub'%self.url_prefix]
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
         self.process = subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         
     def find_chrom_driver(self, pid):
         '''in order of find chrom driver, match webview version of current phone '''
+        if is_port_listening(int(self.port)):
+            self.port = next_local_port()
         self.d.adb.forward_localabstract(self.port,"localabstract:webview_devtools_remote_" +str(pid))
         info = self.get_http("http://localhost:"+str(self.port)+"/json/version")
         try:
@@ -202,14 +208,16 @@ class ChromeDriver(object):
             if StrictVersion(value) >= StrictVersion(master):
                 return key
     
-    def start_server(self, packageName):
-        pid = self.get_app_process(packageName)
-        if self.has_webview(pid):
-            if self.chrome_version is None:
+    def start_server(self, packageName): # chromedriver version issue, about weixin small progress
+        if self.chrome_version is None:
+            pid = self.get_app_process(packageName)
+            if self.has_webview(pid):
                 self.chrome_version = self.find_chrom_driver(pid)
+        if self.chrome_version:
             self._launch_webdriver()
         else:
             raise AssertionError('not exist webview on %s'%self.serial)
+        
         
     def driver(self, package=None, activity=None, attach=True, process=None):
         """
@@ -223,21 +231,17 @@ class ChromeDriver(object):
             selenium driver
         """
         app = self.d.adb.current_app()
-        self._release_port()
-        if self.ping():
-            self.wd.quit()
+        self.getNextPort()
+        self.quit()
+        self.start_server(package or app[0])
+        timeout = 5
+        while timeout > 0:
+            if self.ping():
+                break
+            time.sleep(0.1)
+            timeout -= 0.1
         else:
-            if is_port_listening(self.port):
-                self.port = next_local_port()
-            self.start_server(package or app[0])
-            timeout = 5
-            while timeout > 0:
-                if self.ping():
-                    break
-                time.sleep(0.1)
-                timeout -= 0.1
-            else:
-                raise RuntimeError("chromedriver server not start, chrome version=%s, check chromedriver file exists?"%self.chrome_version)
+            raise RuntimeError("chromedriver server not start, chrome version=%s, check chromedriver file exists?"%self.chrome_version)
         capabilities = {
             'chromeOptions': {
                 'androidDeviceSerial': self.serial,
@@ -247,7 +251,7 @@ class ChromeDriver(object):
                 'androidActivity': activity or app[1],
             }
         }
-        self.wd = webdriver.Remote('http://localhost:%d/wd/hub'%self.port, capabilities)
+        self.wd = webdriver.Remote('http://localhost:%s/%s/hub'%(self.port, self.url_prefix), capabilities)
         self.wd.implicitly_wait(10)
         return self
     
@@ -261,16 +265,36 @@ class ChromeDriver(object):
             self.process.terminate()
         self._clear_chrome_driver()
     
-    def _clear_chrome_driver(self):
-        '''clear chrome driver process'''
+    def getNextPort(self):
         if "win" in sys.platform:
-            cmd = 'FOR /F "usebackq tokens=5" %a in (`netstat -nao ^|findstr /R /C:{0}`) \
-                do (FOR /F "usebackq" %b in (`TASKLIST /FI "PID eq %a" ^| findstr /I chromedriver{1}.exe`) \
-                do (IF NOT %b=="" TASKKILL /F /PID %a))'.format(self.port, self.chrome_version)
-            os.system(cmd)
+            self.port = self.__winport()
         else:
-            os.system('pkill -9 -f "chromedriver%s.*--port=%s"'%(self.chrome_version, self.port))
+            self.port = self.__uinxport()
+        if self.port is None:
+            self.port = next_local_port()
     
+    def __uinxport(self):
+        out = self.cmd('ps','aux', '|grep -v grep', '|grep %s'%self.url_prefix).communicate()[0]
+        for line in out.strip().splitlines(): 
+            if "chromedriver" in line:
+                result = re.search(r"--port=(\d+)", line)
+                if result:
+                    return result.group(1)
+    
+    def __winport(self):
+        out = self.cmd('wmic','process', 'where "commandline like \'%{}%\'"'.format(self.url_prefix),'get commandline').communicate()[0]
+        for line in out.strip().splitlines(): 
+            if line.startswith('chromedriver'):
+                result = re.search(r"--port=(\d+)", line)
+                if result:
+                    return result.group(1) 
+        
+    def cmd(self, *args):
+        cmd_line = " ".join(list(args))
+        if os.name != "nt":
+            cmd_line = [cmd_line]
+        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      
     def _release_port(self):
         try:
             for s, lp, rp in self.d.adb.forward_list():
@@ -279,9 +303,21 @@ class ChromeDriver(object):
         except:
             pass
     
+    def _clear_chrome_driver(self):
+        '''clear chrome driver process'''
+        if "win" in sys.platform:
+#             cmd = 'FOR /F "usebackq tokens=5" %a in (`netstat -nao ^|findstr /R /C:{0}`) \
+#                 do (FOR /F "usebackq" %b in (`TASKLIST /FI "PID eq %a" ^| findstr /I chromedriver{1}.exe`) \
+#                 do (IF NOT %b=="" TASKKILL /F /PID %a))'.format(self.port, self.chrome_version)
+            cmd = 'wmic process where "commandline like \'%{0}%\'" call terminate'.format(self.url_prefix)
+            os.system(cmd)
+        else:
+            os.system('pkill -9 -f "chromedriver.*--url-base=%s/hub"'%self.url_prefix)
+
+    
     def ping(self, timeout=5):
         try:
-            result = self.get_http("http://localhost:%s/wd/hub/status"%self.port, timeout)
+            result = self.get_http("http://localhost:%s/%s/hub/status"%(self.port, self.url_prefix), timeout)
             if result:
                 if "status" in result.keys():
                     return True
@@ -327,7 +363,8 @@ class ChromeDriver(object):
          
 if __name__ == '__main__':
     from uiautomator import device as d
-    driver = ChromeDriver(d).driver()
-    ele = driver.find_element_by1_class_name("itfem")
-    print ele.text
+    for i in range(20):
+        driver = ChromeDriver(d).driver()
+        ele = driver.find_element_by_class_name("item")
+        print ele.text
     

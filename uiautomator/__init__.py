@@ -139,7 +139,7 @@ class JsonRPCMethod(object):
         t.setDaemon(True)
         t.start()
         try:
-#             print 'start post ' + self.url + str(data)
+            print 'start post ' + self.url + str(data)
             if os.name == "nt":
                 res = self.pool.urlopen("POST",
                                         self.url,
@@ -352,11 +352,11 @@ class Adb(object):
 
     def forward(self, local_port, device_port):
         '''adb port forward. return 0 if success, else non-zero.'''
-        return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+        return self.cmd("forward", "tcp:%s" % local_port, "tcp:%s" % device_port).wait()
     
     def forward_localabstract(self,local_port, localabstract):
         '''adb port forward. return 0 if success, else non-zero.'''
-        return self.cmd("forward", "tcp:%d" % local_port, localabstract).wait()
+        return self.cmd("forward", "tcp:%s" % local_port, localabstract).wait()
 
     def forward_list(self):
         '''adb forward --list'''
@@ -367,7 +367,7 @@ class Adb(object):
         return [line.strip().split() for line in lines]
       
     def remove_forward_port(self,port):
-        self.cmd("forward", "--remove", "tcp:%d" % port).wait()
+        self.cmd("forward", "--remove", "tcp:%s" % port).wait()
 
     def version(self):
         '''adb version'''
@@ -652,6 +652,7 @@ class AutomatorDevice(object):
             adb_server_port=adb_server_port
         )
         self.adb = self.server.adb
+        self.webdriver = None
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -953,7 +954,6 @@ class AutomatorDevice(object):
     @property
     def toast(self):
         device_self = self
-
         class _Toast(object):
             def on(self):
                 return device_self.server.jsonrpc.toast('on')
@@ -1049,7 +1049,7 @@ class AutomatorDevice(object):
                 else:
                     raise AssertionError("not find img") 
        
-            def get_location(self, query, origin=None, threshold=0.01, rotation=0,colormode=1):
+            def get_location(self, query, origin=None, threshold=0.01, rotation=0, colormode=1):
                 src_img_path = origin 
                 if src_img_path is None:
                     src_img_path = tempfile.mktemp()
@@ -1057,7 +1057,7 @@ class AutomatorDevice(object):
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    pos = getMatchedCenterOffset(subPath=query, srcPath=src_img_path, threshold=0.01, rotation=rotation,colormode)
+                    pos = getMatchedCenterOffset(query, src_img_path, threshold, rotation, colormode)
                     return pos
                 except:
                     raise
@@ -1068,10 +1068,69 @@ class AutomatorDevice(object):
     
     @property
     def webview(self):
-        return ChromeDriver(self)
+        if self.webdriver:
+            return self.webdriver
+        self.webdriver = ChromeDriver(self)
+        return self.webdriver 
     
     def quit(self):
         self.server.stop()
+        try:
+            if self.webdriver:
+                self.webdriver.quit()
+        except:
+            pass
+        
+        
+    def touchAction(self):
+        device_self = self
+        class _TouchAction(object):
+            def __init__(self):
+                self._actions = []
+                self._x = 0
+                self._y = 0    
+            def down(self,x,y):
+                self._add_action("touchDown", self._get_optx({'x':x,'y':y}))
+                return self        
+            def up(self):
+                self._add_action("touchUp", {'x':self._x,'y':self._y})
+                return self
+            def move_to(self,x,y):
+                self._add_action("moveTo", self._get_optx({'x':x,'y':y}))
+                return self
+            def wait(self,ms):
+                self._add_action("wait", {'s':ms})
+                return self
+            def _add_action(self, action, options):
+                gesture = {
+                    'action': action,
+                    'options': options,
+                }
+                self._actions.append(gesture)
+            def _get_optx(self, opt):
+                self._x = opt['x']
+                self._y = opt['y']
+                return opt
+                
+            def perform(self):
+                try:
+                    print self._actions
+                    for action in self._actions:
+                        act = action.get('action')
+                        opt = action.get('options')
+                        if act == "touchDown":
+                            device_self.server.jsonrpc.touchDown(opt['x'],opt['y'])
+                        if act == "moveTo":
+                            device_self.server.jsonrpc.moveTo(opt['x'],opt['y'])
+                        if act == "touchUp":
+                            device_self.server.jsonrpc.touchUp(opt['x'],opt['y'])
+                        if act == "wait":
+                            ms = opt.get("s")
+                            time.sleep(ms)
+                finally:
+                    self._actions = []
+
+        return _TouchAction()
         
 def del_file(path):
     if os.path.exists(path): 
@@ -1301,6 +1360,7 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def __init__(self, device, selector):
         super(AutomatorDeviceObject, self).__init__(device, selector)
+        print selector
 
     def child(self, **kwargs):
         '''set childSelector.'''
