@@ -42,7 +42,7 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
-u2_version_code=3
+u2_version_code=4
 
 
 def U(x):
@@ -139,7 +139,7 @@ class JsonRPCMethod(object):
         t.setDaemon(True)
         t.start()
         try:
-            print 'start post ' + self.url + str(data)
+#             print 'start post ' + self.url + str(data)
             if os.name == "nt":
                 res = self.pool.urlopen("POST",
                                         self.url,
@@ -565,6 +565,7 @@ class AutomatorServer(object):
     def checkVersion(self):
         ''' check uiautomator apk version '''
         version_code = self.adb.getVersionCode('com.github.uiautomator')
+#         print version_code
         return True if u2_version_code > version_code else False
 
     @property
@@ -965,10 +966,10 @@ class AutomatorDevice(object):
     def img_tz(self):
         device_self = self
         class _Img(object):
-            def exists(self, query, origin=None, interval=2, timeout=4, algorithm='sift', radio=0.75,colormode=1):
+            def exists(self, query, origin=None, interval=2, timeout=4, algorithm='sift', threshold=0.75, colormode=0):
                 if origin:
                     try:
-                        pos = ImageUtil.find_image_positon(query, origin, algorithm, radio,colormode)
+                        pos = ImageUtil.find_image_positon(query, origin, algorithm, threshold,colormode)
                         if pos:
                             return True
                     except:
@@ -982,7 +983,7 @@ class AutomatorDevice(object):
                     time.sleep(interval)
                     device_self.screenshot(src_img_path)
                     try:
-                        pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio,colormode)
+                        pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, threshold, colormode)
                         if pos:
                             isExists = True  
                     except:
@@ -994,14 +995,14 @@ class AutomatorDevice(object):
                     del_file(src_img_path)
                     return isExists
              
-            def click(self, query, origin=None, algorithm='sift', radio=0.75, colormode=1):
-                pos = self.get_location(query, origin, algorithm, radio, colormode)
+            def click(self, query, origin=None, algorithm='sift', threshold=0.75, colormode=0):
+                pos = self.get_location(query, origin, algorithm, threshold, colormode)
                 if pos:
                     device_self.click(pos[0],pos[1])
                 else:
-                    raise AssertionError("not find img") 
+                    raise AssertionError("not find sub img on big img") 
                 
-            def get_location(self, query, origin=None, algorithm='sift', radio=0.75,colormode=1):
+            def get_location(self, query, origin=None, algorithm='sift', threshold=0.75, colormode=0):
                 src_img_path = origin 
                 if src_img_path is None:
                     src_img_path = tempfile.mktemp()
@@ -1009,15 +1010,12 @@ class AutomatorDevice(object):
                 if not os.path.exists(src_img_path):
                     raise IOError('path not origin img')
                 try:
-                    pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, radio,colormode)
-                    if pos:
-                        device_self.click(pos[0],pos[1])
-                    else:
-                        raise AssertionError("not find img") 
+                    pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, threshold, colormode)
+                    return pos 
                 except:
                     raise
                 finally:
-                    if origin:
+                    if origin is None:
                         del_file(src_img_path)
             
         return _Img()
@@ -1026,7 +1024,8 @@ class AutomatorDevice(object):
     def img(self):
         device_self = self
         class _Img(object):
-            def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.01,colormode=1):
+            def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.99,colormode=0):
+                threshold = 1 - threshold
                 if origin:
                     return isMatch(query, origin, threshold,colormode)
                 begin = time.time()
@@ -1042,14 +1041,16 @@ class AutomatorDevice(object):
                     del_file(tmp)
                     return isExists
                 
-            def click(self, query, origin=None, threshold=0.01, rotation=0,colormode=1):
+            def click(self, query, origin=None, threshold=0.99, rotation=0,colormode=0):
+                threshold = 1 - threshold
                 pos = self.get_location(query, origin, threshold, rotation, colormode)
                 if pos:
                     device_self.click(pos[0], pos[1])
                 else:
-                    raise AssertionError("not find img") 
+                    raise AssertionError("not find sub img on big img") 
        
-            def get_location(self, query, origin=None, threshold=0.01, rotation=0, colormode=1):
+            def get_location(self, query, origin=None, threshold=0.99, rotation=0, colormode=0):
+                threshold = 1 - threshold
                 src_img_path = origin 
                 if src_img_path is None:
                     src_img_path = tempfile.mktemp()
@@ -1062,7 +1063,7 @@ class AutomatorDevice(object):
                 except:
                     raise
                 finally:
-                    if origin:
+                    if origin is None:
                         del_file(src_img_path)
         return _Img()
     
@@ -1114,7 +1115,6 @@ class AutomatorDevice(object):
                 
             def perform(self):
                 try:
-                    print self._actions
                     for action in self._actions:
                         act = action.get('action')
                         opt = action.get('options')
@@ -1550,7 +1550,7 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             elif action == "toBeginning":
                 return __scroll_to_beginning(vertical, **kwargs)
             elif action == "toEnd":
-                return __scroll_to_end(vertical, **kwargs)
+                return __scroll_to_end(vertical, **kwargs)  
             elif action == "to":
                 return __scroll_to(vertical, **kwargs)
         return _scroll
