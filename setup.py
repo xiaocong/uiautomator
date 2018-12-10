@@ -17,7 +17,7 @@ test_requires = [
     'coverage>=3.6',
 ]
 
-version = '0.3.8'
+version = '0.3.8.1'
 
 setup(
     name='uiautomator',

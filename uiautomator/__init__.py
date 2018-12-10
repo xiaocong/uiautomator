@@ -565,7 +565,6 @@ class AutomatorServer(object):
     def checkVersion(self):
         ''' check uiautomator apk version '''
         version_code = self.adb.getVersionCode('com.github.uiautomator')
-#         print version_code
         return True if u2_version_code > version_code else False
 
     @property
@@ -1360,7 +1359,6 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
 
     def __init__(self, device, selector):
         super(AutomatorDeviceObject, self).__init__(device, selector)
-        print selector
 
     def child(self, **kwargs):
         '''set childSelector.'''
