@@ -398,6 +398,10 @@ class Adb(object):
                     return (current_info.split('/')[0],current_info.split('/')[1])
                 else:
                     return (current_info.split('/')[0],None)
+    
+    def start_app(self, package_name):
+        '''start app'''
+        self.cmd('shell','am', 'start', package_name).wait()
 
 _init_local_port = LOCAL_PORT - 1
 
