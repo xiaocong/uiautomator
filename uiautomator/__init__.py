@@ -392,9 +392,12 @@ class Adb(object):
         '''return packagename activity'''
         out = self.cmd('shell','dumpsys', 'window', 'w').communicate()[0] 
         for line in out.strip().splitlines():
-            if 'name' in line and '/' in line:
-                package_activity = line[(line.find("name=")+5):-1].split('/')
-                return package_activity[0],package_activity[1]
+            if 'mCurrentFocus' in line:
+                current_info = line[:-1].split(" ")[4]
+                if "/" in current_info:
+                    return (current_info.split('/')[0],current_info.split('/')[1])
+                else:
+                    return (current_info.split('/')[0],None)
 
 _init_local_port = LOCAL_PORT - 1
 
