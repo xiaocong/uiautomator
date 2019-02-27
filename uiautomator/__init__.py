@@ -42,7 +42,7 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
-u2_version_code=4
+u2_version_code=5
 
 
 def U(x):
@@ -135,29 +135,36 @@ class JsonRPCMethod(object):
             data["params"] = kwargs
         jsonresult = {"result": ""}
         # add mintor timeout
-        t = threading.Timer(180, stopUiautomator, (self.url,))
+        t = threading.Timer(90, stopUiautomator, (self.url,))
         t.setDaemon(True)
         t.start()
         try:
-#             print 'start post ' + self.url + str(data)
+#             print 'start post %s %s'%(self.url,str(data))
+            result = None
             if os.name == "nt":
                 res = self.pool.urlopen("POST",
-                                        self.url,
-                                        headers={"Content-Type": "application/json"},
-                                        body=json.dumps(data).encode("utf-8"),
-                                        timeout=self.timeout)
-                jsonresult = json.loads(res.data.decode("utf-8"))
+                    self.url,
+                    headers={"Content-Type": "application/json"},
+                    body=json.dumps(data).encode("utf-8"),
+                    timeout=self.timeout)
+                content_type = res.headers['Content-Type']
+                result = res.data
             else:
-                result = None
+                res = None
                 try:
                     req = urllib2.Request(self.url,
-                                          json.dumps(data).encode("utf-8"),
-                                          {"Content-type": "application/json"})
-                    result = urllib2.urlopen(req, timeout=self.timeout)
-                    jsonresult = json.loads(result.read().decode("utf-8"))
+                        json.dumps(data).encode("utf-8"),
+                        {"Content-type": "application/json"})
+                    res = urllib2.urlopen(req, timeout=self.timeout)
+                    content_type = res.info().getheader('Content-Type')
+                    result = result.read()
                 finally:
-                    if result is not None:
-                        result.close()
+                    if res is not None:
+                        res.close()
+            if self.method == "screenshot":
+                if content_type == "image/png":
+                    return result
+            jsonresult = json.loads(result.decode("utf-8"))
             if "error" in jsonresult and jsonresult["error"]:
                 raise JsonRPCError(
                     jsonresult["error"]["code"],
@@ -168,12 +175,12 @@ class JsonRPCMethod(object):
                 t.cancel()
             except:
                 pass
-            
         return jsonresult["result"]
 
     def id(self):
         m = hashlib.md5()
         m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+#         m.update("i am uiautomator".encode("utf-8"))
         return m.hexdigest()
 
 
@@ -327,7 +334,7 @@ class Adb(object):
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
-        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def device_serial(self):
         if not self.default_serial:
@@ -402,6 +409,10 @@ class Adb(object):
     def start_app(self, package_name):
         '''start app'''
         self.cmd('shell','am', 'start', package_name).wait()
+    
+    def shell(self, *args, **kwargs):
+        '''adb shell command'''
+        self.cmd(*['shell'] + list(args)).wait()
 
 _init_local_port = LOCAL_PORT - 1
 
@@ -542,7 +553,8 @@ class AutomatorServer(object):
             self._start(timeout)
             
     def _start(self, timeout=5):
-        if self.sdk_version() < 18:
+        sdk = self.sdk_version()
+        if sdk != 0 and sdk < 18:
             files = self.push()
             cmd = list(itertools.chain(
                 ["shell", "uiautomator", "runtest"],
@@ -567,7 +579,7 @@ class AutomatorServer(object):
         try:
             return self.__jsonrpc().ping()
         except:
-            return None
+            pass
     
     def checkVersion(self):
         ''' check uiautomator apk version '''
@@ -761,6 +773,10 @@ class AutomatorDevice(object):
     def clear_traversed_text(self):
         '''clear the last traversed text.'''
         self.server.jsonrpc.clearLastTraversedText()
+    
+    def set_text(self, content):
+        '''shell input set test'''
+        self.adb.shell('input text %s'%content)
 
     @property
     def open(self):
@@ -959,6 +975,33 @@ class AutomatorDevice(object):
         return self(**kwargs).exists
     
     @property
+    def configurator(self):
+        '''
+        :Args:
+            actionAcknowledgmentTimeout, default:3000ms
+            keyInjectionDelay, default:0ms
+            scrollAcknowledgmentTimeout, default: 200ms
+            waitForIdleTimeout default: 10000ms
+            waitForSelectorTimeout default: 10000ms
+        :Usage:
+            d.configurator.set()
+            d.configurator.info()
+            d.configurator.restore()
+        '''
+        device.self = self
+        class _ConfiguratorInfo(object):
+            def info(self):
+                return device.self.server.jsonrpc.getConfigurator()
+            def set(self, **kwargs):
+                config_info = {}
+                for k in kwargs:
+                    config_info[k] = kwargs[k]
+                return device.self.server.jsonrpc.setConfigurator(config_info)
+            def restore(self): 
+                return device.self.server.jsonrpc.setConfigurator({'flag':True})
+        return _ConfiguratorInfo()
+    
+    @property
     def toast(self):
         device_self = self
         class _Toast(object):
@@ -1137,6 +1180,7 @@ class AutomatorDevice(object):
                     self._actions = []
 
         return _TouchAction()
+    
         
 def del_file(path):
     if os.path.exists(path): 
@@ -1338,7 +1382,15 @@ class AutomatorDeviceUiObject(object):
             ).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
             return method(self.selector, timeout)
         return _wait
-
+    
+    def screenshot(self,filename=None, scale=1.0, quality=100):
+        '''element screen shot'''
+        result = self.jsonrpc.screenshot(self.selector, scale, quality)
+        if filename is None:
+            filename = tempfile.mktemp()
+        with open(filename, 'wb') as f:
+            f.write(result)
+        return filename
 
 class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
 
