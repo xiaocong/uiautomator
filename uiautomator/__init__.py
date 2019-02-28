@@ -157,7 +157,7 @@ class JsonRPCMethod(object):
                         {"Content-type": "application/json"})
                     res = urllib2.urlopen(req, timeout=self.timeout)
                     content_type = res.info().getheader('Content-Type')
-                    result = result.read()
+                    result = res.read()
                 finally:
                     if res is not None:
                         res.close()
