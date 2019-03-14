@@ -398,13 +398,21 @@ class Adb(object):
     def current_app(self):
         '''return packagename activity'''
         out = self.cmd('shell','dumpsys', 'window', 'w').communicate()[0] 
+        flag = False
+        packageName = None
         for line in out.strip().splitlines():
             if 'mCurrentFocus' in line:
                 current_info = line[:-1].split(" ")[4]
                 if "/" in current_info:
                     return (current_info.split('/')[0],current_info.split('/')[1])
                 else:
-                    return (current_info.split('/')[0],None)
+                    if current_info.split('/')[0] == "StatusBar":
+                        return (current_info.split('/')[0],None)
+                    else:
+                        flag = True
+                        packageName = current_info.split('/')[0] 
+            if flag and "mFocusedApp" in line:
+                return (packageName, line[line.find(packageName)+len(packageName)+1:].split(" ")[0])
     
     def start_app(self, package_name):
         '''start app'''
@@ -892,12 +900,25 @@ class AutomatorDevice(object):
                  "menu", "search", "enter", "delete", "del", "recent",
                  "volume_up", "volume_down", "volume_mute", "camera", "power"]
         )
-        def _press(key, meta=None):
+        def _press(key, meta=None, num=1):
             if isinstance(key, int):
                 return self.server.jsonrpc.pressKeyCode(key, meta) if meta else self.server.jsonrpc.pressKeyCode(key)
             else:
+                if key == "back":
+                    return self.back(num)
                 return self.server.jsonrpc.pressKey(str(key))
         return _press
+    
+    def back(self, num=1):
+        '''force back'''
+        def _back():
+            self.adb.shell("input keyevent 4")
+        while num>0:
+            t = threading.Thread(target=_back)
+            t.setDaemon(True)
+            t.start()
+            time.sleep(0.2)
+            num -= 1
 
     def wakeup(self):
         '''turn on screen in case of screen off.'''
