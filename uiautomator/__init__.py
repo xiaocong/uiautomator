@@ -414,13 +414,27 @@ class Adb(object):
             if flag and "mFocusedApp" in line:
                 return (packageName, line[line.find(packageName)+len(packageName)+1:].split(" ")[0])
     
-    def start_app(self, package_name):
+    def start_app(self, package_activity):
         '''start app'''
-        self.cmd('shell','am', 'start', package_name).wait()
+        self.cmd('shell','am', 'start', package_activity).wait()
     
     def shell(self, *args, **kwargs):
         '''adb shell command'''
         self.cmd(*['shell'] + list(args)).wait()
+        
+    def force_stop(self, packageName):
+        '''force stop package'''
+        self.shell('am','force-stop', packageName)
+    
+    def stop_third_app(self, ignore_filter=[]):
+        '''force stop third app'''
+        ignore_filter_target = ['com.github.uiautomator','com.github.uiautomator.test','com.testguard.uiautomator2','com.testguard.uiautomator2.test']
+        ignore_filter_target += ignore_filter
+        for line in self.cmd('shell','pm','list','package','-3').communicate()[0].strip().splitlines():
+            if 'package:' in line:
+                package_name = line[len('package:'):]
+                if not package_name in ignore_filter_target:
+                    self.force_stop(package_name)
 
 _init_local_port = LOCAL_PORT - 1
 
@@ -483,6 +497,10 @@ class AutomatorServer(object):
                     self.local_port = next_local_port(adb_server_host)
             except:
                 self.local_port = next_local_port(adb_server_host)
+        self.wait_time = 0
+        
+    def set_think_time(self, wait_time):
+        self.wait_time = wait_time
 
     def push(self):
         base_dir = os.path.dirname(__file__)
@@ -498,6 +516,8 @@ class AutomatorServer(object):
 
     @property
     def jsonrpc(self):
+        if self.wait_time != 0:
+            time.sleep(self.wait_time)
         return self.jsonrpc_wrap(timeout=int(os.environ.get("jsonrpc_timeout", 90)))
 
     def jsonrpc_wrap(self, timeout):
@@ -680,6 +700,10 @@ class AutomatorDevice(object):
         )
         self.adb = self.server.adb
         self.webdriver = None
+    
+    def set_think_time(self,wait_time):
+        '''uiautomator steps wait time'''
+        self.server.set_think_time(wait_time)
 
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -703,9 +727,9 @@ class AutomatorDevice(object):
         '''click at arbitrary coordinates.'''
         return self.server.jsonrpc.click(x, y)
 
-    def long_click(self, x, y):
+    def long_click(self, x, y, duration=0):
         '''long click at arbitrary coordinates.'''
-        return self.swipe(x, y, x + 1, y + 1)
+        return self.server.jsonrpc.long_click(x, y, duration)
 
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
@@ -995,6 +1019,10 @@ class AutomatorDevice(object):
         '''Check if the specified ui object by kwargs exists.'''
         return self(**kwargs).exists
     
+    def stop_third_app(self,ignore_filter=["com.tencent.mm"]):
+        '''停止第三方app'''
+        self.adb.stop_third_app(ignore_filter)
+    
     @property
     def configurator(self):
         '''
@@ -1272,6 +1300,11 @@ class AutomatorDeviceUiObject(object):
             else:
                 return self.jsonrpc.clickAndWaitForNewWindow(self.selector, timeout)
         return _click
+    
+    def long_press(self, duration=0):
+        '''long press obj'''
+        return self.jsonrpc.longClick(self.selector, duration)
+        
 
     @property
     def long_click(self):
@@ -1282,14 +1315,14 @@ class AutomatorDeviceUiObject(object):
         d(text="Image").long_click.topleft()  # long click on the topleft of the ui object
         d(text="Image").long_click.bottomright()  # long click on the topleft of the ui object
         '''
-        @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
-        def _long_click(corner=None):
+        @param_to_property(corner=["tl", "topleft", "br", "bottomright", "wait"])
+        def _long_click(corner=None, duration=0):
             info = self.info
             if info["longClickable"]:
-                if corner:
+                if corner in ["tl", "topleft", "br", "bottomright"]:
                     return self.jsonrpc.longClick(self.selector, corner)
                 else:
-                    return self.jsonrpc.longClick(self.selector)
+                    return self.jsonrpc.longClick(self.selector, duration)
             else:
                 bounds = info.get("visibleBounds") or info.get("bounds")
                 if corner in ["tl", "topleft"]:
@@ -1301,7 +1334,7 @@ class AutomatorDeviceUiObject(object):
                 else:
                     x = (bounds["left"] + bounds["right"]) / 2
                     y = (bounds["top"] + bounds["bottom"]) / 2
-                return self.device.long_click(x, y)
+                return self.device.long_click(x, y, duration)
         return _long_click
 
     @property
