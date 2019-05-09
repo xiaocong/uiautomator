@@ -489,7 +489,6 @@ class AutomatorServer(object):
                    "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
-        time.sleep(4)
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
