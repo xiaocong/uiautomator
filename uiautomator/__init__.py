@@ -38,6 +38,8 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
+u2_version_code=3
+
 
 def U(x):
     if sys.version_info.major == 2:
@@ -109,6 +111,7 @@ class JsonRPCMethod(object):
             data["params"] = kwargs
         jsonresult = {"result": ""}
         if os.name == "nt":
+#             print 'start post ' + str(data)
             res = self.pool.urlopen("POST",
                                     self.url,
                                     headers={"Content-Type": "application/json"},
@@ -328,6 +331,19 @@ class Adb(object):
         '''adb version'''
         match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
         return [match.group(i) for i in range(4)]
+    
+    def getVersionCode(self, packageName):
+        '''adb dumpsys package myPackageName'''
+        try:
+            stdout = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0].decode()
+            for line in stdout.splitlines():
+                if line.startswith("    versionCode"):
+                    versionCode = int(line.split('=')[1][0])
+                    print(f'VersionCode: {versionCode}')
+                    return versionCode
+                    break
+        except:
+            return 0
 
 
 _init_local_port = LOCAL_PORT - 1
@@ -402,7 +418,7 @@ class AutomatorServer(object):
     def install(self):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
-            self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
+            self.adb.cmd("install", "-r", "-t", os.path.join(base_dir, apk)).wait()
 
     @property
     def jsonrpc(self):
@@ -467,13 +483,13 @@ class AutomatorServer(object):
                 ["-c", "com.github.uiautomatorstub.Stub"]
             ))
         else:
-            self.install()
+            if self.checkVersion():
+                self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
-
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
-
+        time.sleep(4)
         while not self.alive and timeout > 0:
             time.sleep(0.1)
             timeout -= 0.1
@@ -485,6 +501,11 @@ class AutomatorServer(object):
             return self.__jsonrpc().ping()
         except:
             return None
+    
+    def checkVersion(self):
+        ''' check uiautomator apk version '''
+        need_upgrade = u2_version_code > self.adb.getVersionCode('com.github.uiautomator')
+        return need_upgrade
 
     @property
     def alive(self):
@@ -513,6 +534,11 @@ class AutomatorServer(object):
                         self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
         except:
             pass
+        try:
+            self.adb.cmd("shell", "am", "force-stop", 'com.github.uiautomator').wait()
+        except:
+            pass
+            
 
     @property
     def stop_uri(self):
@@ -861,6 +887,26 @@ class AutomatorDevice(object):
     def exists(self, **kwargs):
         '''Check if the specified ui object by kwargs exists.'''
         return self(**kwargs).exists
+    
+    @property
+    def toast(self):
+        devive_self = self
+
+        class _Toast(object):
+            def on(self):
+                return devive_self.server.jsonrpc.toast('on')
+
+            def off(self):
+                return devive_self.server.jsonrpc.toast('off')
+
+            def __call__(self, action):
+                if action == "on":
+                    return self.on()
+                elif action == "off":
+                    return self.off()
+                else:
+                    raise AttributeError("Invalid parameter: %s" % action)
+        return _Toast()
 
 Device = AutomatorDevice
 
