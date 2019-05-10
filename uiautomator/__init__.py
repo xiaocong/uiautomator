@@ -292,7 +292,7 @@ class Adb(object):
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
-        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.Popen(cmd_line, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def device_serial(self):
         if not self.default_serial:
@@ -339,7 +339,6 @@ class Adb(object):
             for line in stdout.splitlines():
                 if line.startswith("    versionCode"):
                     versionCode = int(line.split('=')[1][0])
-                    print(f'VersionCode: {versionCode}')
                     return versionCode
                     break
         except:
