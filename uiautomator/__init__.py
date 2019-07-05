@@ -426,9 +426,9 @@ class Adb(object):
         '''force stop package'''
         self.shell('am','force-stop', packageName)
     
-    def stop_third_app(self, ignore_filter=[]):
+    def stop_third_app(self, ignore_filter=["com.tencent.mm"]):
         '''force stop third app'''
-        ignore_filter_target = ['com.github.uiautomator','com.github.uiautomator.test','com.testguard.uiautomator2','com.testguard.uiautomator2.test']
+        ignore_filter_target = ['com.github.uiautomator','com.github.uiautomator.test']
         ignore_filter_target += ignore_filter
         for line in self.cmd('shell','pm','list','package','-3').communicate()[0].strip().splitlines():
             if 'package:' in line:
@@ -587,13 +587,14 @@ class AutomatorServer(object):
             cmd = list(itertools.chain(
                 ["shell", "uiautomator", "runtest"],
                 files,
-                ["-c", "com.github.uiautomatorstub.Stub"]
+                ["-c", "com.github.uiautomatorstub.Stub"],
+                ["--nohup"]
             ))
         else:
             if self.checkVersion():
                 self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner&"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
         time.sleep(4)
@@ -951,6 +952,14 @@ class AutomatorDevice(object):
     def sleep(self):
         '''turn off screen in case of screen on.'''
         self.server.jsonrpc.sleep()
+    
+    def start_activity(self, packageActivity):
+        '''start activity'''
+        self.adb.start_app(packageActivity)
+    
+    def wait_time(self, wait_time):
+        '''wait time relate python sleep'''
+        time.sleep(wait_time)
 
     @property
     def screen(self):
