@@ -5,7 +5,10 @@ Created on 2018年10月30日
 
 import subprocess,time
 import json,os,sys,re,socket
-from selenium import webdriver
+try:
+    from selenium import webdriver
+except:
+    pass
 from hashlib import md5
 from distutils.version import StrictVersion
 

@@ -5,6 +5,7 @@
 
 import sys
 import os
+import traceback
 import subprocess
 import time
 import itertools
@@ -18,6 +19,7 @@ from functools import wraps
 from imgUtil import ImageUtil
 from comparison import isMatch, getMatchedCenterOffset
 from chromdriver import ChromeDriver
+from twine.exceptions import PackageNotFound
 
 DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
@@ -42,8 +44,11 @@ except:  # to fix python setup error on Windows.
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
-u2_version_code=5
+u2_version_code=8
+debug_mode = False
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 def U(x):
     if sys.version_info.major == 2:
@@ -135,11 +140,18 @@ class JsonRPCMethod(object):
             data["params"] = kwargs
         jsonresult = {"result": ""}
         # add mintor timeout
-        t = threading.Timer(90, stopUiautomator, (self.url,))
+        t = threading.Timer(60, stopUiautomator, (self.url,))
         t.setDaemon(True)
         t.start()
         try:
-#             print 'start post %s %s'%(self.url,str(data))
+            if debug_mode:
+                params = data.get('params')[0] if data.get('params') else "" 
+                if params:
+                    try:
+                        params = json.dumps({'parmas':params},ensure_ascii=False)
+                    except:
+                        params = str(params)
+                print 'exec u2 cmd: %s %s'%(self.method, params)
             result = None
             if os.name == "nt":
                 res = self.pool.urlopen("POST",
@@ -265,7 +277,7 @@ class Selector(dict):
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
-        return self
+        return self        
 
     child_selector, from_parent = child, sibling
 
@@ -334,6 +346,8 @@ class Adb(object):
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
+        if debug_mode:
+            print 'exec adb cmd: %s'%" ".join(cmd_line)
         return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def device_serial(self):
@@ -395,6 +409,18 @@ class Adb(object):
             pass
         return versionCode
     
+    def checkPackageStatus(self, packageName='com.github.uiautomator'): # 包已卸载，需要确定文件实体
+        try:
+            out = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0]
+            for line in out.strip().splitlines():
+                tmp = line.strip()
+                if tmp.find('Unable to find package: com.github.uiautomator') == -1:
+                    return True
+        except:
+            pass
+        return False
+        
+    
     def current_app(self):
         '''return packagename activity'''
         out = self.cmd('shell','dumpsys', 'window', 'w').communicate()[0] 
@@ -426,6 +452,10 @@ class Adb(object):
         '''force stop package'''
         self.shell('am','force-stop', packageName)
     
+    def install(self, params, apkpath):
+        out = self.cmd('install', params, apkpath).communicate()[0].strip().splitlines()
+        return out
+    
     def stop_third_app(self, ignore_filter=["com.tencent.mm"]):
         '''force stop third app'''
         ignore_filter_target = ['com.github.uiautomator','com.github.uiautomator.test']
@@ -435,6 +465,28 @@ class Adb(object):
                 package_name = line[len('package:'):]
                 if not package_name in ignore_filter_target:
                     self.force_stop(package_name)
+    
+    @property
+    def ime(self): # 输入法相关操作
+        myself = self
+        class IME(object):
+            def availables(self):
+                return filter(lambda x:True if x else False, myself.cmd('shell','ime','list','-s').communicate()[0].strip().splitlines())
+
+            def default(self):
+                return myself.cmd('shell','settings','get','secure','default_input_method').communicate()[0].strip().splitlines()
+
+            def enable(self, imeId):
+                myself.shell('ime', 'enable', imeId)
+        
+            def disable(self, imeId):
+                myself.shell('ime', 'disable', imeId)
+        
+            def set(self, imeId):
+                myself.shell('ime', 'set', imeId)
+                
+        return IME()
+                    
 
 _init_local_port = LOCAL_PORT - 1
 
@@ -501,6 +553,9 @@ class AutomatorServer(object):
         
     def set_think_time(self, wait_time):
         self.wait_time = wait_time
+    
+    def set_debug(self, mode):
+        self.debug = mode
 
     def push(self):
         base_dir = os.path.dirname(__file__)
@@ -513,6 +568,10 @@ class AutomatorServer(object):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
             self.adb.cmd("install", "-r", "-t", os.path.join(base_dir, apk)).wait()
+    
+    def uninstall(self):
+        self.adb.shell('pm','uninstall','-k','com.github.uiautomator')
+        self.adb.cmd('uninstall', 'com.github.uiautomator.test').wait()
 
     @property
     def jsonrpc(self):
@@ -576,6 +635,7 @@ class AutomatorServer(object):
             time.sleep(4) # startup delay 4 seconds
             self._start(timeout)
         except:
+            self.uninstall()
             self.stop()
             time.sleep(4)
             self._start(timeout)
@@ -594,13 +654,13 @@ class AutomatorServer(object):
             if self.checkVersion():
                 self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner&"]  
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
         time.sleep(4)
         while not self.alive and timeout > 0:
-            time.sleep(0.1)
-            timeout -= 0.1
+            time.sleep(0.5)
+            timeout -= 0.5
         if not self.alive:
             raise IOError("RPC server not started!")
 
@@ -613,7 +673,8 @@ class AutomatorServer(object):
     def checkVersion(self):
         ''' check uiautomator apk version '''
         version_code = self.adb.getVersionCode('com.github.uiautomator')
-        return True if u2_version_code > version_code else False
+        package_status = self.adb.checkPackageStatus('com.github.uiautomator')
+        return True if (u2_version_code > version_code) or not package_status else False
 
     @property
     def alive(self):
@@ -705,7 +766,12 @@ class AutomatorDevice(object):
     def set_think_time(self,wait_time):
         '''uiautomator steps wait time'''
         self.server.set_think_time(wait_time)
-
+    
+    def set_debug(self, mode):
+        '''uiautomator debug mode pring log'''
+        global debug_mode
+        debug_mode = mode
+          
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
 
@@ -1239,6 +1305,13 @@ class AutomatorDevice(object):
 
         return _TouchAction()
     
+    def getPhoneInfo(self, simType=0):
+        """获取手机卡相关信息，参数为0，1，主卡，副卡"""
+        return self.server.jsonrpc.getPhoneInfo(simType)
+    
+    def getSmsInfo(self, num=1):
+        """获取短信相关内容"""
+        return self.server.jsonrpc.getSms(num)
         
 def del_file(path):
     if os.path.exists(path): 
