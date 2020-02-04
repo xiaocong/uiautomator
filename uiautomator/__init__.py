@@ -19,14 +19,6 @@ from functools import wraps
 from imgUtil import ImageUtil
 from comparison import isMatch, getMatchedCenterOffset
 from chromdriver import ChromeDriver
-from twine.exceptions import PackageNotFound
-
-DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
-LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
-
-if 'localhost' not in os.environ.get('no_proxy', ''):
-    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
-
 try:
     import urllib2
 except ImportError:
@@ -40,12 +32,27 @@ try:
         import urllib3
 except:  # to fix python setup error on Windows.
     pass
+# Set default logging handler to avoid "No handler found" warnings.
+import logging
 
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
-u2_version_code=8
-debug_mode = False
+
+logger = logging.getLogger('auto_runner')
+if len(logger.handlers) == 0:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
+LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
+
+if 'localhost' not in os.environ.get('no_proxy', ''):
+    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
+    
+u2_version_code=12
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -138,61 +145,49 @@ class JsonRPCMethod(object):
             data["params"] = args
         elif kwargs:
             data["params"] = kwargs
-        jsonresult = {"result": ""}
-        # add mintor timeout
-        t = threading.Timer(60, stopUiautomator, (self.url,))
-        t.setDaemon(True)
-        t.start()
-        try:
-            if debug_mode:
-                params = data.get('params')[0] if data.get('params') else "" 
-                if params:
-                    try:
-                        params = json.dumps({'parmas':params},ensure_ascii=False)
-                    except:
-                        params = str(params)
-                print 'exec u2 cmd: %s %s'%(self.method, params)
-            result = None
-            if os.name == "nt":
-                res = self.pool.urlopen("POST",
-                    self.url,
-                    headers={"Content-Type": "application/json"},
-                    body=json.dumps(data).encode("utf-8"),
-                    timeout=self.timeout)
-                content_type = res.headers['Content-Type']
-                result = res.data
-            else:
-                res = None
-                try:
-                    req = urllib2.Request(self.url,
-                        json.dumps(data).encode("utf-8"),
-                        {"Content-type": "application/json"})
-                    res = urllib2.urlopen(req, timeout=self.timeout)
-                    content_type = res.info().getheader('Content-Type')
-                    result = res.read()
-                finally:
-                    if res is not None:
-                        res.close()
-            if self.method == "screenshot":
-                if content_type == "image/png":
-                    return result
-            jsonresult = json.loads(result.decode("utf-8"))
-            if "error" in jsonresult and jsonresult["error"]:
-                raise JsonRPCError(
-                    jsonresult["error"]["code"],
-                    "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
-                )
-        finally:
+        params = data.get('params')[0] if data.get('params') else "" 
+        if params:
             try:
-                t.cancel()
+                params = json.dumps({'parmas':params},ensure_ascii=False)
             except:
-                pass
+                params = str(params)
+        logger.info('exec u2 cmd: %s %s'%(self.method, params))
+        result = None
+        if os.name == "nt":
+            res = self.pool.urlopen("POST",
+                self.url,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps(data).encode("utf-8"),
+                timeout=self.timeout)
+            content_type = res.headers['Content-Type']
+            result = res.data
+        else:
+            res = None
+            try:
+                req = urllib2.Request(self.url,
+                    json.dumps(data).encode("utf-8"),
+                    {"Content-type": "application/json"})
+                res = urllib2.urlopen(req, timeout=self.timeout)
+                content_type = res.info().getheader('Content-Type')
+                result = res.read()
+            finally:
+                if res is not None:
+                    res.close()
+        if self.method == "screenshot":
+            if content_type == "image/png":
+                return result
+        jsonresult = json.loads(result.decode("utf-8"))
+        if "error" in jsonresult and jsonresult["error"]:
+            raise JsonRPCError(
+                jsonresult["error"]["code"],
+                "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
+            )
         return jsonresult["result"]
 
     def id(self):
         m = hashlib.md5()
-        m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
-#         m.update("i am uiautomator".encode("utf-8"))
+#         m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+        m.update("i am uiautomator".encode("utf-8"))
         return m.hexdigest()
 
 
@@ -346,8 +341,7 @@ class Adb(object):
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
-        if debug_mode:
-            print 'exec adb cmd: %s'%" ".join(cmd_line)
+        logger.info('exec adb cmd: %s'%" ".join(cmd_line))
         return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def device_serial(self):
@@ -414,7 +408,7 @@ class Adb(object):
             out = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0]
             for line in out.strip().splitlines():
                 tmp = line.strip()
-                if tmp.find('Unable to find package: com.github.uiautomator') == -1:
+                if tmp.find('Unable to find package: %s'%packageName) == -1:
                     return True
         except:
             pass
@@ -442,7 +436,12 @@ class Adb(object):
     
     def start_app(self, package_activity):
         '''start app'''
-        self.cmd('shell','am', 'start', package_activity).wait()
+        out = self.cmd('shell','am', 'start', package_activity).communicate()[0]
+        result = []
+        for line in out.strip().splitlines():
+            tmp = line.strip()
+            result.append(tmp)
+        return result
     
     def shell(self, *args, **kwargs):
         '''adb shell command'''
@@ -553,9 +552,6 @@ class AutomatorServer(object):
         
     def set_think_time(self, wait_time):
         self.wait_time = wait_time
-    
-    def set_debug(self, mode):
-        self.debug = mode
 
     def push(self):
         base_dir = os.path.dirname(__file__)
@@ -570,7 +566,7 @@ class AutomatorServer(object):
             self.adb.cmd("install", "-r", "-t", os.path.join(base_dir, apk)).wait()
     
     def uninstall(self):
-        self.adb.shell('pm','uninstall','-k','com.github.uiautomator')
+        self.adb.cmd('uninstall','com.github.uiautomator').wait()
         self.adb.cmd('uninstall', 'com.github.uiautomator.test').wait()
 
     @property
@@ -769,8 +765,7 @@ class AutomatorDevice(object):
     
     def set_debug(self, mode):
         '''uiautomator debug mode pring log'''
-        global debug_mode
-        debug_mode = mode
+        logger.setLevel(mode)
           
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
@@ -889,8 +884,10 @@ class AutomatorDevice(object):
         def _open(action):
             if action == "notification":
                 return self.server.jsonrpc.openNotification()
-            else:
+            elif action == "quick_settings":
                 return self.server.jsonrpc.openQuickSettings()
+            elif action == 'recent_apps':
+                return self.server.jsonrpc.openRecentApps()
         return _open
 
     @property
@@ -1312,6 +1309,34 @@ class AutomatorDevice(object):
     def getSmsInfo(self, num=1):
         """获取短信相关内容"""
         return self.server.jsonrpc.getSms(num)
+    
+    def jumpAppDetail(self,packageName=None):
+        """跳应用详情"""
+        self.server.jsonrpc.jumpApp(packageName)
+        
+    def checkPermission(self, permission):
+        """检查权限"""
+        return self.server.jsonrpc.checkPermission(permission)
+    
+    def open_brower(self,url):
+        self.adb.shell('am','start', '-a', 'android.intent.action.VIEW', '-d', url)
+    
+    def remove_app(self, del_list=[]):
+        """移除指定app"""
+        if del_list:
+            for package_name in del_list:
+                try:
+                    self.adb.shell('pm', 'uninstall', package_name)
+                except:
+                    pass
+                
+    def double_click(self, x, y, ms=0.2):
+        """adb 命令行发行双击"""
+        def tt(x,y):
+            self.adb.shell("input tap {0} {1}".format(x,y))
+        threading.Thread(target=tt, args=(x,y)).start()
+        time.sleep(ms) # 默认间隔200ms
+        threading.Thread(target=tt, args=(x,y)).start()
         
 def del_file(path):
     if os.path.exists(path): 
@@ -1351,6 +1376,15 @@ class AutomatorDeviceUiObject(object):
     def info(self):
         '''ui object info.'''
         return self.jsonrpc.objInfo(self.selector)
+    
+    @property
+    def location(self):
+        '''ui object location.'''
+        info = self.info
+        bounds = info.get("visibleBounds") or info.get("bounds")
+        x = (bounds["left"] + bounds["right"]) / 2
+        y = (bounds["top"] + bounds["bottom"]) / 2
+        return x,y
 
     def set_text(self, text):
         '''set the text field.'''
