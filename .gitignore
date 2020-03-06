@@ -9,3 +9,4 @@ uiautomator.egg-info
 *.egg
 .tox
 .coverage
+/atc_uiautomator.egg-info/

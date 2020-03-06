@@ -52,7 +52,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=12
+u2_version_code=13
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -1309,6 +1309,15 @@ class AutomatorDevice(object):
     def getSmsInfo(self, num=1):
         """获取短信相关内容"""
         return self.server.jsonrpc.getSms(num)
+    
+    def writeSms(self, address, body, readStatus=0, type=1):
+        """写入短信
+        :param address 1860299678
+        :param body test
+        :param readStatus default 0 未读， 1 已读
+        :param type default 1 收 2 发
+        """
+        return self.server.jsonrpc.writeSms(address, body, readStatus, type)
     
     def jumpAppDetail(self,packageName=None):
         """跳应用详情"""

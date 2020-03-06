@@ -9,7 +9,7 @@ except ImportError:
 requires = [
     "urllib3>=1.7.1",
     'selenium>=3.1',
-    'pillow'
+    'pillow>=6.2.1'
 ]
 test_requires = [
     'nose>=1.0',
@@ -17,7 +17,7 @@ test_requires = [
     'coverage>=3.6',
 ]
 
-version = '0.6.3'
+version = '0.6.5'
 
 setup(
     name='atc_uiautomator',
