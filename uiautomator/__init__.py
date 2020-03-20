@@ -52,7 +52,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=13
+u2_version_code=14
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -1306,6 +1306,10 @@ class AutomatorDevice(object):
         """获取手机卡相关信息，参数为0，1，主卡，副卡"""
         return self.server.jsonrpc.getPhoneInfo(simType)
     
+    def default_sms(self, sms_app=None):
+        """获取或设置默认短信应该"""
+        return self.server.jsonrpc.defaultSms(sms_app)
+    
     def getSmsInfo(self, num=1):
         """获取短信相关内容"""
         return self.server.jsonrpc.getSms(num)
@@ -1346,6 +1350,9 @@ class AutomatorDevice(object):
         threading.Thread(target=tt, args=(x,y)).start()
         time.sleep(ms) # 默认间隔200ms
         threading.Thread(target=tt, args=(x,y)).start()
+    
+    def request(self, method, url, data=None, headers=None):
+        return self.server.jsonrpc.httpRequest(method, url, data, headers)
         
 def del_file(path):
     if os.path.exists(path): 
