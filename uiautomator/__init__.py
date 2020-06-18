@@ -52,7 +52,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=15
+u2_version_code=16
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -832,6 +832,16 @@ class AutomatorDevice(object):
         if os.path.exists(filename):
             with open(filename,'rb') as f:
                 return f.read()
+            
+    def screenshot_custom(self, filename='task_image_name.jpg', fomart='jpeg', quality=100):
+        '''
+            take screenshot custom
+            fomart: 'jpeg, png, webp'
+            quality: compress ratio
+        '''
+        result = self.server.jsonrpc.screenshot_custom(filename, fomart, quality)
+        return result
+    
 
     def freeze_rotation(self, freeze=True):
         '''freeze or unfreeze the device rotation in current status.'''
@@ -1023,6 +1033,22 @@ class AutomatorDevice(object):
     def wait_time(self, wait_time):
         '''wait time relate python sleep'''
         time.sleep(wait_time)
+        
+    @property
+    def clipboard(self):
+        devive_self = self
+        class _Clipboard(object):
+            def set(self, content, content_type='text'):
+                return devive_self.server.jsonrpc.setClipboard(content_type, content)
+                
+            def get(self, content_type="text"):
+                return devive_self.server.jsonrpc.getClipboard(content_type)
+            
+            def clear(self):
+                return devive_self.server.jsonrpc.clearClipboard()
+            
+        return _Clipboard()
+            
 
     @property
     def screen(self):
@@ -1353,6 +1379,9 @@ class AutomatorDevice(object):
     
     def request(self, method, url, data=None, headers=None):
         return self.server.jsonrpc.httpRequest(method, url, data, headers)
+    
+    def request_file(self, method, url, data=None, files=None, headers=None):
+        return self.server.jsonrpc.httpRequest(method, url, data, files, headers)
     
     def get_app_info(self, appname):
         """通过appname获取app相关信息"""
