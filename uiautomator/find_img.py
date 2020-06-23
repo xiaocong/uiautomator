@@ -112,6 +112,4 @@ def find_img_position(query, origin, algorithm='sift',radio=0.75, colormode=1):
         return _find_position(img1, H)
     return None
 
-if __name__ == '__main__':
-    print find_img_position("test_black.png", "test1.bmp", algorithm="orb",radio=0.6)
 

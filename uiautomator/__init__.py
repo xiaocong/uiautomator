@@ -52,7 +52,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=16
+u2_version_code=17
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -1377,11 +1377,17 @@ class AutomatorDevice(object):
         time.sleep(ms) # 默认间隔200ms
         threading.Thread(target=tt, args=(x,y)).start()
     
-    def request(self, method, url, data=None, headers=None):
-        return self.server.jsonrpc.httpRequest(method, url, data, headers)
-    
-    def request_file(self, method, url, data=None, files=None, headers=None):
-        return self.server.jsonrpc.httpRequest(method, url, data, files, headers)
+    @property
+    def request(self):
+        device_self = self
+        class _Request(object):
+            def get(self, url, data=None, files=None, headers=None):
+                return device_self.server.jsonrpc.httpRequest("get", url, headers, data, files)
+            
+            def post(self, url, data=None, files=None, headers=None):
+                return device_self.server.jsonrpc.httpRequest("post", url, headers, data, files)
+        return _Request()
+        
     
     def get_app_info(self, appname):
         """通过appname获取app相关信息"""

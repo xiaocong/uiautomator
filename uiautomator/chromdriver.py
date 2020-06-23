@@ -364,10 +364,4 @@ class ChromeDriver(object):
     def __exit__(self):
         self.quit()
          
-if __name__ == '__main__':
-    from uiautomator import device as d
-    for i in range(20):
-        driver = ChromeDriver(d).driver()
-        ele = driver.find_element_by_class_name("item")
-        print ele.text
     
