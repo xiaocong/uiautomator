@@ -1382,10 +1382,14 @@ class AutomatorDevice(object):
         device_self = self
         class _Request(object):
             def get(self, url, data=None, files=None, headers=None):
-                return device_self.server.jsonrpc.httpRequest("get", url, headers, data, files)
+                result = device_self.server.jsonrpc.httpRequest("get", url, headers, data, files)
+                if result:
+                    return json.loads(result)
             
             def post(self, url, data=None, files=None, headers=None):
-                return device_self.server.jsonrpc.httpRequest("post", url, headers, data, files)
+                result = device_self.server.jsonrpc.httpRequest("post", url, headers, data, files)
+                if result:
+                    return json.loads(result)
         return _Request()
         
     
