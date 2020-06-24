@@ -1,0 +1,19 @@
+[distutils]
+index-servers =
+  pypi
+  pypitest
+
+[pypi]
+repository=https://upload.pypi.org/legacy/
+username=xiaocong
+password=Xcbdf1q2b
+
+[pypitest]
+repository=https://test.pypi.org/legacy/
+username=xiaocong
+password=Xcbdf1q2b
+
+
+python2 -m twine upload dist/* --repository-url https://test.pypi.org/legacy/
+
+pip install -U uiautomator -i https://test.pypi.org/simple/

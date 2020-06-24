@@ -5,22 +5,20 @@
 
 import sys
 import os
+import traceback
 import subprocess
 import time
 import itertools
 import json
 import hashlib
-import socket
-import re
+import socket,threading
+import re,tempfile
 import collections
 import xml.dom.minidom
-
-DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
-LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
-
-if 'localhost' not in os.environ.get('no_proxy', ''):
-    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
-
+from functools import wraps
+from imgUtil import ImageUtil
+from comparison import isMatch, getMatchedCenterOffset
+from chromdriver import ChromeDriver
 try:
     import urllib2
 except ImportError:
@@ -34,10 +32,30 @@ try:
         import urllib3
 except:  # to fix python setup error on Windows.
     pass
+# Set default logging handler to avoid "No handler found" warnings.
+import logging
 
 __author__ = "Xiaocong He"
 __all__ = ["device", "Device", "rect", "point", "Selector", "JsonRPCError"]
 
+
+logger = logging.getLogger('auto_runner')
+if len(logger.handlers) == 0:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
+LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
+
+if 'localhost' not in os.environ.get('no_proxy', ''):
+    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
+    
+u2_version_code=17
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 def U(x):
     if sys.version_info.major == 2:
@@ -77,6 +95,27 @@ def param_to_property(*props, **kwprops):
                 return self.func(*new_args, **kwargs)
     return Wrapper
 
+def stopUiautomator(url):
+    port = url.split(":")[2].split("/")[0]
+    serial = None
+    try:
+        lines = systemCmd(['adb','forward','--list']).communicate()[0].decode("utf-8").strip().splitlines()
+        for s, lp, rp in [line.strip().split() for line in lines]:
+            if lp == 'tcp:%s'%port and rp=='tcp:9008':
+                serial = s
+                break
+    except:
+        pass
+    if serial:
+        os.system("adb -s %s shell am force-stop com.github.uiautomator"%serial)
+        
+
+def systemCmd(cmd_line):
+    '''exec system cmd, paramas list'''
+    if os.name != "nt":
+        cmd_line = [" ".join(cmd_line)]
+    return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
 
 class JsonRPCError(Exception):
 
@@ -86,8 +125,7 @@ class JsonRPCError(Exception):
 
     def __str__(self):
         return "JsonRPC Error code: %d, Message: %s" % (self.code, self.message)
-
-
+    
 class JsonRPCMethod(object):
 
     if os.name == 'nt':
@@ -98,7 +136,7 @@ class JsonRPCMethod(object):
 
     def __init__(self, url, method, timeout=30):
         self.url, self.method, self.timeout = url, method, timeout
-
+    
     def __call__(self, *args, **kwargs):
         if args and kwargs:
             raise SyntaxError("Could not accept both *args and **kwargs as JSONRPC parameters.")
@@ -107,25 +145,38 @@ class JsonRPCMethod(object):
             data["params"] = args
         elif kwargs:
             data["params"] = kwargs
-        jsonresult = {"result": ""}
+        params = data.get('params')[0] if data.get('params') else "" 
+        if params:
+            try:
+                params = json.dumps({'parmas':params},ensure_ascii=False)
+            except:
+                params = str(params)
+        logger.info('exec u2 cmd: %s %s'%(self.method, params))
+        result = None
         if os.name == "nt":
             res = self.pool.urlopen("POST",
-                                    self.url,
-                                    headers={"Content-Type": "application/json"},
-                                    body=json.dumps(data).encode("utf-8"),
-                                    timeout=self.timeout)
-            jsonresult = json.loads(res.data.decode("utf-8"))
+                self.url,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps(data).encode("utf-8"),
+                timeout=self.timeout)
+            content_type = res.headers['Content-Type']
+            result = res.data
         else:
-            result = None
+            res = None
             try:
                 req = urllib2.Request(self.url,
-                                      json.dumps(data).encode("utf-8"),
-                                      {"Content-type": "application/json"})
-                result = urllib2.urlopen(req, timeout=self.timeout)
-                jsonresult = json.loads(result.read().decode("utf-8"))
+                    json.dumps(data).encode("utf-8"),
+                    {"Content-type": "application/json"})
+                res = urllib2.urlopen(req, timeout=self.timeout)
+                content_type = res.info().getheader('Content-Type')
+                result = res.read()
             finally:
-                if result is not None:
-                    result.close()
+                if res is not None:
+                    res.close()
+        if self.method == "screenshot":
+            if content_type == "image/png":
+                return result
+        jsonresult = json.loads(result.decode("utf-8"))
         if "error" in jsonresult and jsonresult["error"]:
             raise JsonRPCError(
                 jsonresult["error"]["code"],
@@ -135,7 +186,8 @@ class JsonRPCMethod(object):
 
     def id(self):
         m = hashlib.md5()
-        m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+#         m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+        m.update("i am uiautomator".encode("utf-8"))
         return m.hexdigest()
 
 
@@ -220,7 +272,7 @@ class Selector(dict):
     def sibling(self, **kwargs):
         self[self.__childOrSibling].append("sibling")
         self[self.__childOrSiblingSelector].append(Selector(**kwargs))
-        return self
+        return self        
 
     child_selector, from_parent = child, sibling
 
@@ -289,16 +341,17 @@ class Adb(object):
         cmd_line = [self.adb()] + self.adbHostPortOptions + list(args)
         if os.name != "nt":
             cmd_line = [" ".join(cmd_line)]
-        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.info('exec adb cmd: %s'%" ".join(cmd_line))
+        return subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def device_serial(self):
         if not self.default_serial:
             devices = self.devices()
             if devices:
-                if len(devices) is 1:
+                if len(devices):
                     self.default_serial = list(devices.keys())[0]
                 else:
-                    raise EnvironmentError("Multiple devices attached but default android serial not set.")
+                    raise EnvironmentError("not device found.")
             else:
                 raise EnvironmentError("Device not attached.")
         return self.default_serial
@@ -314,7 +367,11 @@ class Adb(object):
 
     def forward(self, local_port, device_port):
         '''adb port forward. return 0 if success, else non-zero.'''
-        return self.cmd("forward", "tcp:%d" % local_port, "tcp:%d" % device_port).wait()
+        return self.cmd("forward", "tcp:%s" % local_port, "tcp:%s" % device_port).wait()
+    
+    def forward_localabstract(self,local_port, localabstract):
+        '''adb port forward. return 0 if success, else non-zero.'''
+        return self.cmd("forward", "tcp:%s" % local_port, localabstract).wait()
 
     def forward_list(self):
         '''adb forward --list'''
@@ -323,12 +380,112 @@ class Adb(object):
             raise EnvironmentError("Low adb version.")
         lines = self.raw_cmd("forward", "--list").communicate()[0].decode("utf-8").strip().splitlines()
         return [line.strip().split() for line in lines]
+      
+    def remove_forward_port(self,port):
+        self.cmd("forward", "--remove", "tcp:%s" % port).wait()
 
     def version(self):
         '''adb version'''
         match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
         return [match.group(i) for i in range(4)]
+    
+    def getVersionCode(self, packageName):
+        '''adb dumpsys package myPackageName'''
+        versionCode = 0
+        try:
+            out = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0]
+            for line in out.strip().splitlines():
+                tmp = line.strip()
+                if tmp.startswith("versionCode="):
+                    versionCode = int(tmp.split(" ")[0].split("=")[1])
+                    break
+        except:
+            pass
+        return versionCode
+    
+    def checkPackageStatus(self, packageName='com.github.uiautomator'): # 包已卸载，需要确定文件实体
+        try:
+            out = self.cmd('shell','dumpsys', 'package', packageName).communicate()[0]
+            for line in out.strip().splitlines():
+                tmp = line.strip()
+                if tmp.find('Unable to find package: %s'%packageName) == -1:
+                    return True
+        except:
+            pass
+        return False
+        
+    
+    def current_app(self):
+        '''return packagename activity'''
+        out = self.cmd('shell','dumpsys', 'window', 'w').communicate()[0] 
+        flag = False
+        packageName = None
+        for line in out.strip().splitlines():
+            if 'mCurrentFocus' in line:
+                current_info = line[:-1].split(" ")[4]
+                if "/" in current_info:
+                    return (current_info.split('/')[0],current_info.split('/')[1])
+                else:
+                    if current_info.split('/')[0] == "StatusBar":
+                        return (current_info.split('/')[0],None)
+                    else:
+                        flag = True
+                        packageName = current_info.split('/')[0] 
+            if flag and "mFocusedApp" in line:
+                return (packageName, line[line.find(packageName)+len(packageName)+1:].split(" ")[0])
+    
+    def start_app(self, package_activity):
+        '''start app'''
+        out = self.cmd('shell','am', 'start', package_activity).communicate()[0]
+        result = []
+        for line in out.strip().splitlines():
+            tmp = line.strip()
+            result.append(tmp)
+        return result
+    
+    def shell(self, *args, **kwargs):
+        '''adb shell command'''
+        self.cmd(*['shell'] + list(args)).wait()
+        
+    def force_stop(self, packageName):
+        '''force stop package'''
+        self.shell('am','force-stop', packageName)
+    
+    def install(self, params, apkpath):
+        out = self.cmd('install', params, apkpath).communicate()[0].strip().splitlines()
+        return out
+    
+    def stop_third_app(self, ignore_filter=["com.tencent.mm"]):
+        '''force stop third app'''
+        ignore_filter_target = ['com.github.uiautomator','com.github.uiautomator.test']
+        ignore_filter_target += ignore_filter
+        for line in self.cmd('shell','pm','list','package','-3').communicate()[0].strip().splitlines():
+            if 'package:' in line:
+                package_name = line[len('package:'):]
+                if not package_name in ignore_filter_target:
+                    self.force_stop(package_name)
+    
+    @property
+    def ime(self): # 输入法相关操作
+        myself = self
+        class IME(object):
+            def availables(self):
+                return filter(lambda x:True if x else False, myself.cmd('shell','ime','list','-s').communicate()[0].strip().splitlines())
 
+            def default(self):
+                return myself.cmd('shell','settings','get','secure','default_input_method').communicate()[0].strip().splitlines()
+
+            def enable(self, imeId):
+                myself.shell('ime', 'enable', imeId)
+        
+            def disable(self, imeId):
+                myself.shell('ime', 'disable', imeId)
+        
+            def set(self, imeId):
+                myself.shell('ime', 'set', imeId)
+                
+        return IME()
+                    
 
 _init_local_port = LOCAL_PORT - 1
 
@@ -384,13 +541,17 @@ class AutomatorServer(object):
         else:
             try:  # first we will try to use the local port already adb forwarded
                 for s, lp, rp in self.adb.forward_list():
-                    if s == self.adb.device_serial() and rp == 'tcp:%d' % self.device_port:
+                    if s == self.adb.device_serial() and rp == 'tcp:%s'%self.device_port:
                         self.local_port = int(lp[4:])
                         break
                 else:
                     self.local_port = next_local_port(adb_server_host)
             except:
                 self.local_port = next_local_port(adb_server_host)
+        self.wait_time = 0
+        
+    def set_think_time(self, wait_time):
+        self.wait_time = wait_time
 
     def push(self):
         base_dir = os.path.dirname(__file__)
@@ -402,10 +563,16 @@ class AutomatorServer(object):
     def install(self):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
-            self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
+            self.adb.cmd("install", "-r", "-t", os.path.join(base_dir, apk)).wait()
+    
+    def uninstall(self):
+        self.adb.cmd('uninstall','com.github.uiautomator').wait()
+        self.adb.cmd('uninstall', 'com.github.uiautomator.test').wait()
 
     @property
     def jsonrpc(self):
+        if self.wait_time != 0:
+            time.sleep(self.wait_time)
         return self.jsonrpc_wrap(timeout=int(os.environ.get("jsonrpc_timeout", 90)))
 
     def jsonrpc_wrap(self, timeout):
@@ -457,26 +624,39 @@ class AutomatorServer(object):
             except:
                 pass
         return self.__sdk
-
-    def start(self, timeout=5):
-        if self.sdk_version() < 18:
+    
+    def start(self,timeout=5):
+        '''add retry 2 times'''
+        try:
+            time.sleep(4) # startup delay 4 seconds
+            self._start(timeout)
+        except:
+            self.uninstall()
+            self.stop()
+            time.sleep(4)
+            self._start(timeout)
+            
+    def _start(self, timeout=5):
+        sdk = self.sdk_version()
+        if sdk != 0 and sdk < 18:
             files = self.push()
             cmd = list(itertools.chain(
                 ["shell", "uiautomator", "runtest"],
                 files,
-                ["-c", "com.github.uiautomatorstub.Stub"]
+                ["-c", "com.github.uiautomatorstub.Stub"],
+                ["--nohup"]
             ))
         else:
-            self.install()
+            if self.checkVersion():
+                self.install()
             cmd = ["shell", "am", "instrument", "-w",
-                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]
-
+                   "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
-
+        time.sleep(4)
         while not self.alive and timeout > 0:
-            time.sleep(0.1)
-            timeout -= 0.1
+            time.sleep(0.5)
+            timeout -= 0.5
         if not self.alive:
             raise IOError("RPC server not started!")
 
@@ -484,7 +664,13 @@ class AutomatorServer(object):
         try:
             return self.__jsonrpc().ping()
         except:
-            return None
+            pass
+    
+    def checkVersion(self):
+        ''' check uiautomator apk version '''
+        version_code = self.adb.getVersionCode('com.github.uiautomator')
+        package_status = self.adb.checkPackageStatus('com.github.uiautomator')
+        return True if (u2_version_code > version_code) or not package_status else False
 
     @property
     def alive(self):
@@ -513,6 +699,11 @@ class AutomatorServer(object):
                         self.adb.cmd("shell", "kill", "-9", line.split()[index]).wait()
         except:
             pass
+        try:
+            self.adb.cmd("shell", "am", "force-stop", 'com.github.uiautomator').wait()
+        except:
+            pass
+            
 
     @property
     def stop_uri(self):
@@ -525,11 +716,12 @@ class AutomatorServer(object):
     @property
     def screenshot_uri(self):
         return "http://%s:%d/screenshot/0" % (self.adb.adb_server_host, self.local_port)
+    
 
     def screenshot(self, filename=None, scale=1.0, quality=100):
         if self.sdk_version() >= 18:
             try:
-                req = urllib2.Request("%s?scale=%f&quality=%f" % (self.screenshot_uri, scale, quality))
+                req = urllib2.Request("%s?scale=%s&quality=%s" % (self.screenshot_uri, scale, quality))
                 result = urllib2.urlopen(req, timeout=30)
                 if filename:
                     with open(filename, 'wb') as f:
@@ -564,7 +756,17 @@ class AutomatorDevice(object):
             adb_server_host=adb_server_host,
             adb_server_port=adb_server_port
         )
-
+        self.adb = self.server.adb
+        self.webdriver = None
+    
+    def set_think_time(self,wait_time):
+        '''uiautomator steps wait time'''
+        self.server.set_think_time(wait_time)
+    
+    def set_debug(self, mode):
+        '''uiautomator debug mode pring log'''
+        logger.setLevel(mode)
+          
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
 
@@ -587,9 +789,9 @@ class AutomatorDevice(object):
         '''click at arbitrary coordinates.'''
         return self.server.jsonrpc.click(x, y)
 
-    def long_click(self, x, y):
+    def long_click(self, x, y, duration=0):
         '''long click at arbitrary coordinates.'''
-        return self.swipe(x, y, x + 1, y + 1)
+        return self.server.jsonrpc.long_click(x, y, duration)
 
     def swipe(self, sx, sy, ex, ey, steps=100):
         return self.server.jsonrpc.swipe(sx, sy, ex, ey, steps)
@@ -616,20 +818,30 @@ class AutomatorDevice(object):
             content = U(xml_text.toprettyxml(indent='  '))
         return content
 
-    def screenshot(self, filename, scale=1.0, quality=100):
+    def screenshot(self, filename=None, scale=1.0, quality=100):
         '''take screenshot.'''
         result = self.server.screenshot(filename, scale, quality)
         if result:
             return result
-
-        device_file = self.server.jsonrpc.takeScreenshot("screenshot.png",
-                                                         scale, quality)
-        if not device_file:
-            return None
-        p = self.server.adb.cmd("pull", device_file, filename)
-        p.wait()
-        self.server.adb.cmd("shell", "rm", device_file).wait()
-        return filename if p.returncode is 0 else None
+        if filename is None:
+            filename = tempfile.mktemp()
+        png = "/data/local/tmp/screen_shot.png"
+        self.server.adb.cmd("shell", "screencap", "-p", png).wait()
+        self.server.adb.cmd("pull", png, filename).wait()
+        self.server.adb.cmd("shell", "rm", png).wait()
+        if os.path.exists(filename):
+            with open(filename,'rb') as f:
+                return f.read()
+            
+    def screenshot_custom(self, filename='task_image_name.jpg', fomart='jpeg', quality=100):
+        '''
+            take screenshot custom
+            fomart: 'jpeg, png, webp'
+            quality: compress ratio
+        '''
+        result = self.server.jsonrpc.screenshot_custom(filename, fomart, quality)
+        return result
+    
 
     def freeze_rotation(self, freeze=True):
         '''freeze or unfreeze the device rotation in current status.'''
@@ -665,6 +877,10 @@ class AutomatorDevice(object):
     def clear_traversed_text(self):
         '''clear the last traversed text.'''
         self.server.jsonrpc.clearLastTraversedText()
+    
+    def set_text(self, content):
+        '''shell input set test'''
+        self.adb.shell('input text %s'%content)
 
     @property
     def open(self):
@@ -678,8 +894,10 @@ class AutomatorDevice(object):
         def _open(action):
             if action == "notification":
                 return self.server.jsonrpc.openNotification()
-            else:
+            elif action == "quick_settings":
                 return self.server.jsonrpc.openQuickSettings()
+            elif action == 'recent_apps':
+                return self.server.jsonrpc.openRecentApps()
         return _open
 
     @property
@@ -780,12 +998,25 @@ class AutomatorDevice(object):
                  "menu", "search", "enter", "delete", "del", "recent",
                  "volume_up", "volume_down", "volume_mute", "camera", "power"]
         )
-        def _press(key, meta=None):
+        def _press(key, meta=None, num=1):
             if isinstance(key, int):
                 return self.server.jsonrpc.pressKeyCode(key, meta) if meta else self.server.jsonrpc.pressKeyCode(key)
             else:
+                if key == "back":
+                    return self.back(num)
                 return self.server.jsonrpc.pressKey(str(key))
         return _press
+    
+    def back(self, num=1):
+        '''force back'''
+        def _back():
+            self.adb.shell("input keyevent 4")
+        while num>0:
+            t = threading.Thread(target=_back)
+            t.setDaemon(True)
+            t.start()
+            time.sleep(0.2)
+            num -= 1
 
     def wakeup(self):
         '''turn on screen in case of screen off.'''
@@ -794,6 +1025,30 @@ class AutomatorDevice(object):
     def sleep(self):
         '''turn off screen in case of screen on.'''
         self.server.jsonrpc.sleep()
+    
+    def start_activity(self, packageActivity):
+        '''start activity'''
+        self.adb.start_app(packageActivity)
+    
+    def wait_time(self, wait_time):
+        '''wait time relate python sleep'''
+        time.sleep(wait_time)
+        
+    @property
+    def clipboard(self):
+        devive_self = self
+        class _Clipboard(object):
+            def set(self, content, content_type='text'):
+                return devive_self.server.jsonrpc.setClipboard(content_type, content)
+                
+            def get(self, content_type="text"):
+                return devive_self.server.jsonrpc.getClipboard(content_type)
+            
+            def clear(self):
+                return devive_self.server.jsonrpc.clearClipboard()
+            
+        return _Clipboard()
+            
 
     @property
     def screen(self):
@@ -861,6 +1116,290 @@ class AutomatorDevice(object):
     def exists(self, **kwargs):
         '''Check if the specified ui object by kwargs exists.'''
         return self(**kwargs).exists
+    
+    def stop_third_app(self,ignore_filter=["com.tencent.mm"]):
+        '''停止第三方app'''
+        self.adb.stop_third_app(ignore_filter)
+    
+    @property
+    def configurator(self):
+        '''
+        :Args:
+            actionAcknowledgmentTimeout, default:3000ms
+            keyInjectionDelay, default:0ms
+            scrollAcknowledgmentTimeout, default: 200ms
+            waitForIdleTimeout default: 10000ms
+            waitForSelectorTimeout default: 10000ms
+        :Usage:
+            d.configurator.set()
+            d.configurator.info()
+            d.configurator.restore()
+        '''
+        device.self = self
+        class _ConfiguratorInfo(object):
+            def info(self):
+                return device.self.server.jsonrpc.getConfigurator()
+            def set(self, **kwargs):
+                config_info = {}
+                for k in kwargs:
+                    config_info[k] = kwargs[k]
+                return device.self.server.jsonrpc.setConfigurator(config_info)
+            def restore(self): 
+                return device.self.server.jsonrpc.setConfigurator({'flag':True})
+        return _ConfiguratorInfo()
+    
+    @property
+    def toast(self):
+        device_self = self
+        class _Toast(object):
+            def on(self):
+                return device_self.server.jsonrpc.toast('on')
+            def off(self):
+                return device_self.server.jsonrpc.toast('off')
+        return _Toast()
+    
+    @property
+    def img_tz(self):
+        device_self = self
+        class _Img(object):
+            def exists(self, query, origin=None, interval=2, timeout=4, algorithm='sift', threshold=0.75, colormode=0):
+                if origin:
+                    try:
+                        pos = ImageUtil.find_image_positon(query, origin, algorithm, threshold,colormode)
+                        if pos:
+                            return True
+                    except:
+                        pass
+                    return False
+                begin = time.time()
+                isExists = False
+                src_img_path = tempfile.mktemp()
+                device_self.screenshot(src_img_path)
+                while (time.time() - begin < timeout):
+                    time.sleep(interval)
+                    device_self.screenshot(src_img_path)
+                    try:
+                        pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, threshold, colormode)
+                        if pos:
+                            isExists = True  
+                    except:
+                        pass
+                    if not isExists:
+                        time.sleep(interval)
+                        del_file(src_img_path)
+                        continue
+                    del_file(src_img_path)
+                    return isExists
+             
+            def click(self, query, origin=None, algorithm='sift', threshold=0.75, colormode=0):
+                pos = self.get_location(query, origin, algorithm, threshold, colormode)
+                if pos:
+                    device_self.click(pos[0],pos[1])
+                else:
+                    raise AssertionError("not find sub img on big img") 
+                
+            def get_location(self, query, origin=None, algorithm='sift', threshold=0.75, colormode=0):
+                src_img_path = origin 
+                if src_img_path is None:
+                    src_img_path = tempfile.mktemp()
+                    device_self.screenshot(src_img_path)
+                if not os.path.exists(src_img_path):
+                    raise IOError('path not origin img')
+                try:
+                    pos = ImageUtil.find_image_positon(query, src_img_path, algorithm, threshold, colormode)
+                    return pos 
+                except:
+                    raise
+                finally:
+                    if origin is None:
+                        del_file(src_img_path)
+            
+        return _Img()
+    
+    @property
+    def img(self):
+        device_self = self
+        class _Img(object):
+            def exists(self, query, origin=None, interval=2, timeout=4, threshold=0.99,colormode=0):
+                threshold = 1 - threshold
+                if origin:
+                    return isMatch(query, origin, threshold,colormode)
+                begin = time.time()
+                isExists = False
+                tmp = tempfile.mktemp()
+                while (time.time() - begin < timeout):
+                    device_self.screenshot(tmp)
+                    isExists = isMatch(query, tmp, threshold,colormode)
+                    if not isExists:
+                        time.sleep(interval)
+                        del_file(tmp)
+                        continue
+                    del_file(tmp)
+                    return isExists
+                
+            def click(self, query, origin=None, threshold=0.99, rotation=0,colormode=0):
+                threshold = 1 - threshold
+                pos = self.get_location(query, origin, threshold, rotation, colormode)
+                if pos:
+                    device_self.click(pos[0], pos[1])
+                else:
+                    raise AssertionError("not find sub img on big img") 
+       
+            def get_location(self, query, origin=None, threshold=0.99, rotation=0, colormode=0):
+                threshold = 1 - threshold
+                src_img_path = origin 
+                if src_img_path is None:
+                    src_img_path = tempfile.mktemp()
+                    device_self.screenshot(src_img_path)
+                if not os.path.exists(src_img_path):
+                    raise IOError('path not origin img')
+                try:
+                    pos = getMatchedCenterOffset(query, src_img_path, threshold, rotation, colormode)
+                    return pos
+                except:
+                    raise
+                finally:
+                    if origin is None:
+                        del_file(src_img_path)
+        return _Img()
+    
+    @property
+    def webview(self):
+        if self.webdriver:
+            return self.webdriver
+        self.webdriver = ChromeDriver(self)
+        return self.webdriver 
+    
+    def quit(self):
+        self.server.stop()
+        try:
+            if self.webdriver:
+                self.webdriver.quit()
+        except:
+            pass
+        
+        
+    def touchAction(self):
+        device_self = self
+        class _TouchAction(object):
+            def __init__(self):
+                self._actions = []
+                self._x = 0
+                self._y = 0    
+            def down(self,x,y):
+                self._add_action("touchDown", self._get_optx({'x':x,'y':y}))
+                return self        
+            def up(self):
+                self._add_action("touchUp", {'x':self._x,'y':self._y})
+                return self
+            def move_to(self,x,y):
+                self._add_action("moveTo", self._get_optx({'x':x,'y':y}))
+                return self
+            def wait(self,ms):
+                self._add_action("wait", {'s':ms})
+                return self
+            def _add_action(self, action, options):
+                gesture = {
+                    'action': action,
+                    'options': options,
+                }
+                self._actions.append(gesture)
+            def _get_optx(self, opt):
+                self._x = opt['x']
+                self._y = opt['y']
+                return opt
+                
+            def perform(self):
+                try:
+                    for action in self._actions:
+                        act = action.get('action')
+                        opt = action.get('options')
+                        if act == "touchDown":
+                            device_self.server.jsonrpc.touchDown(opt['x'],opt['y'])
+                        if act == "moveTo":
+                            device_self.server.jsonrpc.moveTo(opt['x'],opt['y'])
+                        if act == "touchUp":
+                            device_self.server.jsonrpc.touchUp(opt['x'],opt['y'])
+                        if act == "wait":
+                            ms = opt.get("s")
+                            time.sleep(ms)
+                finally:
+                    self._actions = []
+
+        return _TouchAction()
+    
+    def getPhoneInfo(self, simType=0):
+        """获取手机卡相关信息，参数为0，1，主卡，副卡"""
+        return self.server.jsonrpc.getPhoneInfo(simType)
+    
+    def default_sms(self, sms_app=None):
+        """获取或设置默认短信应该"""
+        return self.server.jsonrpc.defaultSms(sms_app)
+    
+    def getSmsInfo(self, num=1):
+        """获取短信相关内容"""
+        return self.server.jsonrpc.getSms(num)
+    
+    def writeSms(self, address, body, readStatus=0, type=1):
+        """写入短信
+        :param address 1860299678
+        :param body test
+        :param readStatus default 0 未读， 1 已读
+        :param type default 1 收 2 发
+        """
+        return self.server.jsonrpc.writeSms(address, body, readStatus, type)
+    
+    def jumpAppDetail(self,packageName=None):
+        """跳应用详情"""
+        self.server.jsonrpc.jumpApp(packageName)
+        
+    def checkPermission(self, permission):
+        """检查权限"""
+        return self.server.jsonrpc.checkPermission(permission)
+    
+    def open_brower(self,url):
+        self.adb.shell('am','start', '-a', 'android.intent.action.VIEW', '-d', url)
+    
+    def remove_app(self, del_list=[]):
+        """移除指定app"""
+        if del_list:
+            for package_name in del_list:
+                try:
+                    self.adb.shell('pm', 'uninstall', package_name)
+                except:
+                    pass
+                
+    def double_click(self, x, y, ms=0.2):
+        """adb 命令行发行双击"""
+        def tt(x,y):
+            self.adb.shell("input tap {0} {1}".format(x,y))
+        threading.Thread(target=tt, args=(x,y)).start()
+        time.sleep(ms) # 默认间隔200ms
+        threading.Thread(target=tt, args=(x,y)).start()
+    
+    @property
+    def request(self):
+        device_self = self
+        class _Request(object):
+            def get(self, url, data=None, files=None, headers=None):
+                result = device_self.server.jsonrpc.httpRequest("get", url, headers, data, files)
+                if result:
+                    return json.loads(result)
+            
+            def post(self, url, data=None, files=None, headers=None):
+                result = device_self.server.jsonrpc.httpRequest("post", url, headers, data, files)
+                if result:
+                    return json.loads(result)
+        return _Request()
+        
+    
+    def get_app_info(self, appname):
+        """通过appname获取app相关信息"""
+        return self.server.jsonrpc.getAppinfo(appname)
+        
+def del_file(path):
+    if os.path.exists(path): 
+        os.remove(path)
 
 Device = AutomatorDevice
 
@@ -896,6 +1435,15 @@ class AutomatorDeviceUiObject(object):
     def info(self):
         '''ui object info.'''
         return self.jsonrpc.objInfo(self.selector)
+    
+    @property
+    def location(self):
+        '''ui object location.'''
+        info = self.info
+        bounds = info.get("visibleBounds") or info.get("bounds")
+        x = (bounds["left"] + bounds["right"]) / 2
+        y = (bounds["top"] + bounds["bottom"]) / 2
+        return x,y
 
     def set_text(self, text):
         '''set the text field.'''
@@ -927,6 +1475,11 @@ class AutomatorDeviceUiObject(object):
             else:
                 return self.jsonrpc.clickAndWaitForNewWindow(self.selector, timeout)
         return _click
+    
+    def long_press(self, duration=0):
+        '''long press obj'''
+        return self.jsonrpc.longClick(self.selector, duration)
+        
 
     @property
     def long_click(self):
@@ -937,14 +1490,14 @@ class AutomatorDeviceUiObject(object):
         d(text="Image").long_click.topleft()  # long click on the topleft of the ui object
         d(text="Image").long_click.bottomright()  # long click on the topleft of the ui object
         '''
-        @param_to_property(corner=["tl", "topleft", "br", "bottomright"])
-        def _long_click(corner=None):
+        @param_to_property(corner=["tl", "topleft", "br", "bottomright", "wait"])
+        def _long_click(corner=None, duration=0):
             info = self.info
             if info["longClickable"]:
-                if corner:
+                if corner in ["tl", "topleft", "br", "bottomright"]:
                     return self.jsonrpc.longClick(self.selector, corner)
                 else:
-                    return self.jsonrpc.longClick(self.selector)
+                    return self.jsonrpc.longClick(self.selector, duration)
             else:
                 bounds = info.get("visibleBounds") or info.get("bounds")
                 if corner in ["tl", "topleft"]:
@@ -956,7 +1509,7 @@ class AutomatorDeviceUiObject(object):
                 else:
                     x = (bounds["left"] + bounds["right"]) / 2
                     y = (bounds["top"] + bounds["bottom"]) / 2
-                return self.device.long_click(x, y)
+                return self.device.long_click(x, y, duration)
         return _long_click
 
     @property
@@ -1058,7 +1611,15 @@ class AutomatorDeviceUiObject(object):
             ).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
             return method(self.selector, timeout)
         return _wait
-
+    
+    def screenshot(self,filename=None, scale=1.0, quality=100):
+        '''element screen shot'''
+        result = self.jsonrpc.screenshot(self.selector, scale, quality)
+        if filename is None:
+            filename = tempfile.mktemp()
+        with open(filename, 'wb') as f:
+            f.write(result)
+        return filename
 
 class AutomatorDeviceNamedUiObject(AutomatorDeviceUiObject):
 
@@ -1275,7 +1836,7 @@ class AutomatorDeviceObject(AutomatorDeviceUiObject):
             elif action == "toBeginning":
                 return __scroll_to_beginning(vertical, **kwargs)
             elif action == "toEnd":
-                return __scroll_to_end(vertical, **kwargs)
+                return __scroll_to_end(vertical, **kwargs)  
             elif action == "to":
                 return __scroll_to(vertical, **kwargs)
         return _scroll

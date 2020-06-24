@@ -7,20 +7,22 @@ except ImportError:
 
 
 requires = [
-    "urllib3>=1.7.1"
+    "urllib3>=1.7.1",
+    'selenium>=3.1',
+    'pillow>=6.2.1'
 ]
 test_requires = [
     'nose>=1.0',
     'mock>=1.0.1',
-    'coverage>=3.6'
+    'coverage>=3.6',
 ]
 
-version = '0.3.2'
+version = '0.7.0'
 
 setup(
-    name='uiautomator',
+    name='atc_uiautomator',
     version=version,
-    description='Python Wrapper for Android UiAutomator test tool',
+    description='Python Wrapper for Android UiAutomator test_set tool',
     long_description='Python wrapper for Android uiautomator tool.',
     author='Xiaocong He',
     author_email='xiaocong@gmail.com,hongbin.bao@gmail.com',
@@ -37,7 +39,7 @@ setup(
         'uiautomator': [
             'uiautomator/libs/bundle.jar',
             'uiautomator/libs/uiautomator-stub.jar',
-            'uiautomator/libs/app-uiautomator-test.apk',
+            'uiautomator/libs/app-uiautomator-test_set.apk',
             'uiautomator/libs/app-uiautomator.apk'
         ]
     },
