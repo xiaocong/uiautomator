@@ -17,7 +17,7 @@ test_requires = [
     'coverage>=3.6',
 ]
 
-version = '0.7.0'
+version = '0.7.1'
 
 setup(
     name='atc_uiautomator',

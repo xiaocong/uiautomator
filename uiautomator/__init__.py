@@ -8,6 +8,7 @@ import os
 import traceback
 import subprocess
 import time
+import base64
 import itertools
 import json
 import hashlib
@@ -52,7 +53,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=17
+u2_version_code=18
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -186,8 +187,8 @@ class JsonRPCMethod(object):
 
     def id(self):
         m = hashlib.md5()
-#         m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
-        m.update("i am uiautomator".encode("utf-8"))
+        m.update(("%s at %f" % (self.method, time.time())).encode("utf-8"))
+#         m.update("i am uiautomator".encode("utf-8"))
         return m.hexdigest()
 
 
@@ -464,6 +465,20 @@ class Adb(object):
                 package_name = line[len('package:'):]
                 if not package_name in ignore_filter_target:
                     self.force_stop(package_name)
+    @property
+    def airplane_mode(self):
+        my_self = self
+        class _AirplaneMode(object):
+            def on(self):
+                my_self.shell('settings put global airplane_mode_on 1')
+                time.sleep(2)
+                my_self.shell('am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true')
+            def off(self):
+                my_self.shell('settings put global airplane_mode_on 0')
+                time.sleep(2)
+                my_self.shell('am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false')
+        return _AirplaneMode()
+    
     
     @property
     def ime(self): # 输入法相关操作
@@ -649,7 +664,7 @@ class AutomatorServer(object):
         else:
             if self.checkVersion():
                 self.install()
-            cmd = ["shell", "am", "instrument", "-w",
+            cmd = ["shell", "am", "instrument", "-r", "-w",
                    "com.github.uiautomator.test/android.support.test.runner.AndroidJUnitRunner"]  
         self.uiautomator_process = self.adb.cmd(*cmd)
         self.adb.forward(self.local_port, self.device_port)
@@ -841,6 +856,26 @@ class AutomatorDevice(object):
         '''
         result = self.server.jsonrpc.screenshot_custom(filename, fomart, quality)
         return result
+    
+    @property
+    def takeScreenshot(self):
+        my_self = self
+        class _ScreenShot(object):
+            def device(self, filename=None, scale=1.0, quality=100):
+                return my_self.screenshot(filename, scale, quality)
+            
+            def custom(self, filename='task_image_name.jpg', fomart='jpeg', quality=100):
+                '''
+                take screenshot custom
+                fomart: 'jpeg, png, webp'
+                quality: compress ratio
+                '''
+                return my_self.server.jsonrpc.screenshot_custom(filename, fomart, quality)
+                      
+            def crop(self, left, top, width, height, customWidth, customHeight, filename="screenshot.png", imageFormat="png"):
+                return my_self.server.jsonrpc.takeScreenshot(left, top, width, height, customWidth, customHeight, filename, imageFormat)
+            
+        return _ScreenShot()
     
 
     def freeze_rotation(self, freeze=True):
@@ -1390,6 +1425,13 @@ class AutomatorDevice(object):
                 result = device_self.server.jsonrpc.httpRequest("post", url, headers, data, files)
                 if result:
                     return json.loads(result)
+                
+            def send_file(self, file_path, filename=None):
+                if os.path.exists(file_path):
+                    with open(file_path, "rb") as f:
+                        content = base64.b64encode(f.read())
+                        return device_self.server.jsonrpc.sendFile(filename, content)
+                
         return _Request()
         
     
