@@ -2,4 +2,3 @@ include uiautomator/*.py
 include setup.py
 include uiautomator/libs/*.jar
 include uiautomator/libs/*.apk
-include test/*.py
