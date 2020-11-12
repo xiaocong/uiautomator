@@ -9,3 +9,4 @@ uiautomator.egg-info
 *.egg
 .tox
 .coverage
+uiautomator/.DS_Store

@@ -370,6 +370,7 @@ class AutomatorServer(object):
     }
 
     __apk_files = ["libs/app-uiautomator.apk", "libs/app-uiautomator-test.apk"]
+    __androidx_apk_files = ["libs/app-uiautomator-androidx.apk", "libs/app-uiautomator-test-androidx.apk"]
 
     __sdk = 0
 
@@ -402,6 +403,11 @@ class AutomatorServer(object):
     def install(self):
         base_dir = os.path.dirname(__file__)
         for apk in self.__apk_files:
+            self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
+
+    def install_androidx(self):
+        base_dir = os.path.dirname(__file__)
+        for apk in self.__androidx_apk_files:
             self.adb.cmd("install", "-r -t", os.path.join(base_dir, apk)).wait()
 
     @property
@@ -466,6 +472,10 @@ class AutomatorServer(object):
                 files,
                 ["-c", "com.github.uiautomatorstub.Stub"]
             ))
+        elif self.sdk_version >= 28:
+            self.install_androidx()
+            cmd = ["shell", "am", "instrument", "-w",
+                   "com.github.uiautomator.test/androidx.test.runner.AndroidJUnitRunner"]           
         else:
             self.install()
             cmd = ["shell", "am", "instrument", "-w",

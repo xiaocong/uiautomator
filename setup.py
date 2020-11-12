@@ -15,7 +15,7 @@ test_requires = [
     'coverage>=3.6'
 ]
 
-version = '0.3.2'
+version = '1.0.1'
 
 setup(
     name='uiautomator',
@@ -23,11 +23,11 @@ setup(
     description='Python Wrapper for Android UiAutomator test tool',
     long_description='Python wrapper for Android uiautomator tool.',
     author='Xiaocong He',
-    author_email='xiaocong@gmail.com,hongbin.bao@gmail.com',
+    author_email='xiaocong@gmail.com, hongbin.bao@gmail.com',
     url='https://github.com/xiaocong/uiautomator',
     download_url='https://github.com/xiaocong/uiautomator/tarball/%s' % version,
     keywords=[
-        'testing', 'android', 'uiautomator'
+        'testing', 'android', 'uiautomator', 'uiautomatorpy'
     ],
     install_requires=requires,
     tests_require=test_requires,
@@ -38,8 +38,9 @@ setup(
             'uiautomator/libs/bundle.jar',
             'uiautomator/libs/uiautomator-stub.jar',
             'uiautomator/libs/app-uiautomator-test.apk',
-            'uiautomator/libs/app-uiautomator.apk'
-        ]
+            'uiautomator/libs/app-uiautomator.apk',
+            'uiautomator/libs/app-uiautomator-test-androidx.apk',
+            'uiautomator/libs/app-uiautomator-androidx.apk']
     },
     include_package_data=True,
     license='MIT',
