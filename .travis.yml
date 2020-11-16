@@ -1,20 +1,20 @@
 language: python
 python:
   - "2.7"
-  - "3.2"
   - "3.3"
   - "3.4"
+  - "3.5"
+  - "3.6"
   - "pypy"
-# command to install dependencies
+
+# Install test dependencies. TravisCI gives us nose, mock, and pytest by default
 install:
-  - "pip install coveralls --use-mirrors"
-  - "pip install nose --use-mirrors"
-  - "pip install mock --use-mirrors"
-# command to run tests
+  - pip install coveralls
+  - pip install -r requirements.txt
+
 script:
-#  - "python setup.py nosetests --cover-package=uiautomator --with-coverage --cover-erase"
   - "coverage run --source=uiautomator setup.py nosetests"
   - "python setup.py sdist"
-# after success
+
 after_success:
   coveralls
