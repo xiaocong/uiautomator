@@ -8,6 +8,7 @@ uiautomator
 [![Coverage Status](https://img.shields.io/coveralls/xiaocong/uiautomator/master.svg)](https://coveralls.io/r/xiaocong/uiautomator?branch=master)
 [![pypi](https://img.shields.io/pypi/v/uiautomator.svg)](https://pypi.python.org/pypi/uiautomator)
 [![downloads](https://img.shields.io/pypi/dm/uiautomator.svg)](https://pypi.python.org/pypi/uiautomator)
+[![Reviewed by Hound](https://img.shields.io/badge/Reviewed_by-Hound-8E64B0.svg)](https://houndci.com)
 
 This module is a Python wrapper of Android [uiautomator][] testing framework. It works on Android 4.1+ (API Level 16~30)
 simply with Android device attached via adb, no need to install anything on Android device.
