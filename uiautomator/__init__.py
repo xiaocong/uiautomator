@@ -575,6 +575,10 @@ class AutomatorDevice(object):
             adb_server_port=adb_server_port
         )
 
+    def __del__(self):
+      if self.server != None:
+        self.server.stop()
+
     def __call__(self, **kwargs):
         return AutomatorDeviceObject(self, Selector(**kwargs))
 
