@@ -59,9 +59,32 @@ class TestAutomatorServer(unittest.TestCase):
         server.ping = MagicMock()
         server.ping.return_value = None
         server.adb = MagicMock()
-        with patch("time.sleep"):
+        with patch("time.sleep") as time_sleep_mock, patch("time.time") as time_time_mock:
+            self._current_time = 0
+            time_sleep_mock.side_effect = self._time_sleep
+            time_time_mock.side_effect = lambda: self._current_time
             with self.assertRaises(IOError):
-                server.start()
+                server.start(timeout=1)
+
+    def _time_sleep(self, timeout):
+        self._current_time += timeout
+
+    # Tests that start() timeout works correctly even in case communication
+    # with device takes too long.
+    def test_start_timeout_works_properly(self):
+        server = AutomatorServer()
+        server.push = MagicMock()
+        server.push.return_value = ["bundle.jar", "uiautomator-stub.jar"]
+        server.ping = MagicMock()
+        server.ping.side_effect = lambda: self._time_sleep(100)
+        server.adb = MagicMock()
+        with patch("time.sleep") as time_sleep_mock, patch("time.time") as time_time_mock:
+            self._current_time = 0
+            time_sleep_mock.side_effect = self._time_sleep
+            time_time_mock.side_effect = lambda: self._current_time
+            with self.assertRaises(IOError):
+                server.start(timeout=1)
+            self.assertGreater(100.2, self._current_time)
 
     def test_auto_start(self):
         try:
