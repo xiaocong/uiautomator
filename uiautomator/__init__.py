@@ -464,7 +464,7 @@ class AutomatorServer(object):
                 pass
         return self.__sdk
 
-    def start(self, timeout=5):
+    def start(self, timeout=10):
         if self.sdk_version() < 18:
             files = self.push()
             cmd = list(itertools.chain(
