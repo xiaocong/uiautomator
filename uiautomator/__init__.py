@@ -472,7 +472,7 @@ class AutomatorServer(object):
                 files,
                 ["-c", "com.github.uiautomatorstub.Stub"]
             ))
-        elif self.sdk_version >= 28:
+        elif self.sdk_version() >= 28:
             self.install_androidx()
             cmd = ["shell", "am", "instrument", "-w",
                    "com.github.uiautomator.test/androidx.test.runner.AndroidJUnitRunner"]           
