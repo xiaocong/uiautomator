@@ -53,7 +53,7 @@ LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 if 'localhost' not in os.environ.get('no_proxy', ''):
     os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
     
-u2_version_code=18
+u2_version_code=21
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -1431,7 +1431,11 @@ class AutomatorDevice(object):
                     with open(file_path, "rb") as f:
                         content = base64.b64encode(f.read())
                         return device_self.server.jsonrpc.sendFile(filename, content)
-                
+            def get_cookie(self, url):
+                return device_self.server.jsonrpc.getCookie(url)
+            
+            def get_html(self, url):
+                return device_self.server.jsonrpc.getHtml(url)       
         return _Request()
         
     
