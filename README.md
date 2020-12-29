@@ -48,7 +48,7 @@ d(text="Clock").click()
 
 - Speficy the adb server host and port running on other computer
 
-    Although adb supports `-a` option since SDK 4.3, but now it has a bug on it. The only way to start adb server listenning on all interfaces instead of localhost, is `adb -a -P 5037 fork-server server &`
+    Although adb supports `-a` option since SDK 4.3, but now it has a bug on it. The only way to start adb server listening on all interfaces instead of localhost, is `adb -a -P 5037 fork-server server &`
 
   ```python
   from uiautomator import Device
