@@ -38,7 +38,7 @@ d(text="Clock").click()
   from uiautomator import device as d
   ```
 
-- Speficy the serial number when retrieving the device object
+- Specify the serial number when retrieving the device object
 
   ```python
   from uiautomator import Device
