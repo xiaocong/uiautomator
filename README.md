@@ -21,7 +21,7 @@ d(text="Clock").click()
 
 ## Installation
 
-    $ pip install uiautomator
+    pip install uiautomator
 
 
 ### Pre-requirements
