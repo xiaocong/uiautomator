@@ -295,7 +295,7 @@ class Adb(object):
         if not self.default_serial:
             devices = self.devices()
             if devices:
-                if len(devices) is 1:
+                if len(devices) == 1:
                     self.default_serial = list(devices.keys())[0]
                 else:
                     raise EnvironmentError("Multiple devices attached but default android serial not set.")
@@ -639,7 +639,7 @@ class AutomatorDevice(object):
         p = self.server.adb.cmd("pull", device_file, filename)
         p.wait()
         self.server.adb.cmd("shell", "rm", device_file).wait()
-        return filename if p.returncode is 0 else None
+        return filename if p.returncode == 0 else None
 
     def freeze_rotation(self, freeze=True):
         '''freeze or unfreeze the device rotation in current status.'''
